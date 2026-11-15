@@ -1,0 +1,953 @@
+{
+  "almanac": {
+    "786-0": {
+      "cellminer": "786-0",
+      "ach": "ACH-000649",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000649"
+      ]
+    },
+    "A498": {
+      "cellminer": "A498",
+      "ach": "ACH-000555",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000555"
+      ]
+    },
+    "A549/ATCC": {
+      "cellminer": "A549/ATCC",
+      "ach": "ACH-000681",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000681"
+      ]
+    },
+    "ACHN": {
+      "cellminer": "ACHN",
+      "ach": "ACH-000046",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000046"
+      ]
+    },
+    "BT-549": {
+      "cellminer": "BT-549",
+      "ach": "ACH-000288",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000288"
+      ]
+    },
+    "CAKI-1": {
+      "cellminer": "CAKI-1",
+      "ach": "ACH-000433",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000433"
+      ]
+    },
+    "CCRF-CEM": {
+      "cellminer": "CCRF-CEM",
+      "ach": "",
+      "in_depmap": false,
+      "candidates": [
+        "ACH-001738"
+      ]
+    },
+    "COLO 205": {
+      "cellminer": "COLO 205",
+      "ach": "",
+      "in_depmap": false,
+      "candidates": [
+        "ACH-001039"
+      ]
+    },
+    "DU-145": {
+      "cellminer": "DU-145",
+      "ach": "ACH-000979",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000979"
+      ]
+    },
+    "EKVX": {
+      "cellminer": "EKVX",
+      "ach": "ACH-000706",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000706"
+      ]
+    },
+    "HCC-2998": {
+      "cellminer": "HCC-2998",
+      "ach": "",
+      "in_depmap": false,
+      "candidates": [
+        "ACH-001081"
+      ]
+    },
+    "HCT-116": {
+      "cellminer": "HCT-116",
+      "ach": "ACH-000971",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000971"
+      ]
+    },
+    "HCT-15": {
+      "cellminer": "HCT-15",
+      "ach": "ACH-000997",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000997"
+      ]
+    },
+    "HL-60(TB)": {
+      "cellminer": "HL-60(TB)",
+      "ach": "ACH-000002",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000002"
+      ]
+    },
+    "HOP-62": {
+      "cellminer": "HOP-62",
+      "ach": "ACH-000861",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000861"
+      ]
+    },
+    "HOP-92": {
+      "cellminer": "HOP-92",
+      "ach": "ACH-000825",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000825"
+      ]
+    },
+    "HS 578T": {
+      "cellminer": "HS 578T",
+      "ach": "ACH-000148",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000148"
+      ]
+    },
+    "HT29": {
+      "cellminer": "HT29",
+      "ach": "ACH-000552",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000552"
+      ]
+    },
+    "IGROV1": {
+      "cellminer": "IGROV1",
+      "ach": "ACH-000966",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000966"
+      ]
+    },
+    "K-562": {
+      "cellminer": "K-562",
+      "ach": "ACH-000551",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000551"
+      ]
+    },
+    "KM12": {
+      "cellminer": "KM12",
+      "ach": "ACH-000969",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000969"
+      ]
+    },
+    "LOX IMVI": {
+      "cellminer": "LOX IMVI",
+      "ach": "ACH-000750",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000750"
+      ]
+    },
+    "M14": {
+      "cellminer": "M14",
+      "ach": "",
+      "in_depmap": false,
+      "candidates": [
+        "ACH-002159"
+      ]
+    },
+    "MALME-3M": {
+      "cellminer": "MALME-3M",
+      "ach": "ACH-000477",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000477"
+      ]
+    },
+    "MCF7": {
+      "cellminer": "MCF7",
+      "ach": "ACH-000019",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000019",
+        "ACH-002325"
+      ]
+    },
+    "MDA-MB-231/ATCC": {
+      "cellminer": "MDA-MB-231",
+      "ach": "ACH-000768",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000768"
+      ]
+    },
+    "MDA-MB-435": {
+      "cellminer": "MDA-MB-435",
+      "ach": "",
+      "in_depmap": false,
+      "candidates": []
+    },
+    "MOLT-4": {
+      "cellminer": "MOLT-4",
+      "ach": "",
+      "in_depmap": false,
+      "candidates": [
+        "ACH-001127"
+      ]
+    },
+    "NCI-H226": {
+      "cellminer": "NCI-H226",
+      "ach": "ACH-000367",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000367"
+      ]
+    },
+    "NCI-H23": {
+      "cellminer": "NCI-H23",
+      "ach": "ACH-000900",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000900"
+      ]
+    },
+    "NCI-H322M": {
+      "cellminer": "NCI-H322M",
+      "ach": "",
+      "in_depmap": false,
+      "candidates": [
+        "ACH-002172"
+      ]
+    },
+    "NCI-H460": {
+      "cellminer": "NCI-H460",
+      "ach": "ACH-000463",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000463"
+      ]
+    },
+    "NCI-H522": {
+      "cellminer": "NCI-H522",
+      "ach": "ACH-000343",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000343"
+      ]
+    },
+    "NCI/ADR-RES": {
+      "cellminer": "NCI/ADR-RES",
+      "ach": "",
+      "in_depmap": false,
+      "candidates": []
+    },
+    "OVCAR-3": {
+      "cellminer": "OVCAR-3",
+      "ach": "ACH-000001",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000001"
+      ]
+    },
+    "OVCAR-4": {
+      "cellminer": "OVCAR-4",
+      "ach": "ACH-000617",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000617"
+      ]
+    },
+    "OVCAR-5": {
+      "cellminer": "OVCAR-5",
+      "ach": "ACH-001151",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-001151"
+      ]
+    },
+    "OVCAR-8": {
+      "cellminer": "OVCAR-8",
+      "ach": "ACH-000696",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000696"
+      ]
+    },
+    "PC-3": {
+      "cellminer": "PC-3",
+      "ach": "ACH-000090",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000090",
+        "ACH-002184"
+      ]
+    },
+    "RPMI-8226": {
+      "cellminer": "RPMI-8226",
+      "ach": "ACH-000817",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000817"
+      ]
+    },
+    "RXF 393": {
+      "cellminer": "RXF 393",
+      "ach": "",
+      "in_depmap": false,
+      "candidates": [
+        "ACH-002195"
+      ]
+    },
+    "SF-268": {
+      "cellminer": "SF-268",
+      "ach": "ACH-000655",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000655"
+      ]
+    },
+    "SF-295": {
+      "cellminer": "SF-295",
+      "ach": "ACH-000376",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000376"
+      ]
+    },
+    "SF-539": {
+      "cellminer": "SF-539",
+      "ach": "ACH-000273",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000273"
+      ]
+    },
+    "SK-MEL-2": {
+      "cellminer": "SK-MEL-2",
+      "ach": "ACH-001190",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-001190"
+      ]
+    },
+    "SK-MEL-28": {
+      "cellminer": "SK-MEL-28",
+      "ach": "ACH-000615",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000615"
+      ]
+    },
+    "SK-MEL-5": {
+      "cellminer": "SK-MEL-5",
+      "ach": "ACH-000730",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000730"
+      ]
+    },
+    "SK-OV-3": {
+      "cellminer": "SK-OV-3",
+      "ach": "ACH-000811",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000811"
+      ]
+    },
+    "SN12C": {
+      "cellminer": "SN12C",
+      "ach": "",
+      "in_depmap": false,
+      "candidates": [
+        "ACH-002199"
+      ]
+    },
+    "SNB-19": {
+      "cellminer": "SNB-19",
+      "ach": "",
+      "in_depmap": false,
+      "candidates": [
+        "ACH-001198"
+      ]
+    },
+    "SNB-75": {
+      "cellminer": "SNB-75",
+      "ach": "ACH-000504",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000504"
+      ]
+    },
+    "SR": {
+      "cellminer": "SR",
+      "ach": "ACH-000338",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000338"
+      ]
+    },
+    "SW-620": {
+      "cellminer": "SW-620",
+      "ach": "ACH-000651",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000651"
+      ]
+    },
+    "T-47D": {
+      "cellminer": "T-47D",
+      "ach": "ACH-000147",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000147"
+      ]
+    },
+    "TK-10": {
+      "cellminer": "TK-10",
+      "ach": "",
+      "in_depmap": false,
+      "candidates": [
+        "ACH-001208"
+      ]
+    },
+    "U251": {
+      "cellminer": "U251",
+      "ach": "ACH-000232",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000232"
+      ]
+    },
+    "UACC-257": {
+      "cellminer": "UACC-257",
+      "ach": "ACH-000579",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000579"
+      ]
+    },
+    "UACC-62": {
+      "cellminer": "UACC-62",
+      "ach": "ACH-000425",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000425"
+      ]
+    },
+    "UO-31": {
+      "cellminer": "UO-31",
+      "ach": "ACH-000428",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000428"
+      ]
+    }
+  },
+  "oneil": {
+    "A2058": {
+      "ach": "ACH-000788",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000788"
+      ]
+    },
+    "A2780": {
+      "ach": "ACH-000657",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000657"
+      ]
+    },
+    "A375": {
+      "ach": "ACH-000219",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000219"
+      ]
+    },
+    "A427": {
+      "ach": "ACH-000757",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000757"
+      ]
+    },
+    "CAOV3": {
+      "ach": "ACH-000713",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000713"
+      ]
+    },
+    "COLO320DM": {
+      "ach": "",
+      "in_depmap": false,
+      "candidates": []
+    },
+    "DLD1": {
+      "ach": "ACH-001061",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-001061"
+      ]
+    },
+    "EFM192B": {
+      "ach": "",
+      "in_depmap": false,
+      "candidates": []
+    },
+    "ES2": {
+      "ach": "ACH-000906",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000906"
+      ]
+    },
+    "HCT116": {
+      "ach": "ACH-000971",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000971"
+      ]
+    },
+    "HT144": {
+      "ach": "ACH-000322",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000322"
+      ]
+    },
+    "HT29": {
+      "ach": "ACH-000552",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000552"
+      ]
+    },
+    "KPL1": {
+      "ach": "ACH-000028",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000028"
+      ]
+    },
+    "LNCAP": {
+      "ach": "ACH-000977",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000977"
+      ]
+    },
+    "LOVO": {
+      "ach": "ACH-000950",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000950"
+      ]
+    },
+    "MDAMB436": {
+      "ach": "ACH-000573",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000573"
+      ]
+    },
+    "MSTO": {
+      "ach": "ACH-000335",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000335"
+      ]
+    },
+    "NCIH1650": {
+      "ach": "ACH-000035",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000035"
+      ]
+    },
+    "NCIH2122": {
+      "ach": "ACH-000311",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000311"
+      ]
+    },
+    "NCIH23": {
+      "ach": "ACH-000900",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000900"
+      ]
+    },
+    "NCIH460": {
+      "ach": "ACH-000463",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000463"
+      ]
+    },
+    "NCIH520": {
+      "ach": "ACH-000395",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000395"
+      ]
+    },
+    "OCUBM": {
+      "ach": "",
+      "in_depmap": false,
+      "candidates": [
+        "ACH-002179"
+      ]
+    },
+    "OV90": {
+      "ach": "ACH-000291",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000291"
+      ]
+    },
+    "OVCAR3": {
+      "ach": "ACH-000001",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000001"
+      ]
+    },
+    "PA1": {
+      "ach": "ACH-001374",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-001374"
+      ]
+    },
+    "RKO": {
+      "ach": "ACH-000943",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000943"
+      ]
+    },
+    "RPMI7951": {
+      "ach": "ACH-000348",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000348"
+      ]
+    },
+    "SKMEL30": {
+      "ach": "ACH-000810",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000810"
+      ]
+    },
+    "SKMES1": {
+      "ach": "ACH-000665",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000665"
+      ]
+    },
+    "SKOV3": {
+      "ach": "ACH-000811",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000811"
+      ]
+    },
+    "SW620": {
+      "ach": "ACH-000651",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000651"
+      ]
+    },
+    "SW837": {
+      "ach": "ACH-000421",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000421"
+      ]
+    },
+    "T47D": {
+      "ach": "ACH-000147",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000147"
+      ]
+    },
+    "UACC62": {
+      "ach": "ACH-000425",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000425"
+      ]
+    },
+    "UWB1289": {
+      "ach": "ACH-001418",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-001418"
+      ]
+    },
+    "UWB1289BRCA1": {
+      "ach": "",
+      "in_depmap": false,
+      "candidates": []
+    },
+    "VCAP": {
+      "ach": "ACH-000115",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000115"
+      ]
+    },
+    "ZR751": {
+      "ach": "ACH-000097",
+      "in_depmap": true,
+      "candidates": [
+        "ACH-000097"
+      ]
+    }
+  },
+  "configs": {
+    "almanac_cm59": {
+      "n_cells": 59,
+      "cells": [
+        "786-0",
+        "A498",
+        "A549/ATCC",
+        "ACHN",
+        "BT-549",
+        "CAKI-1",
+        "CCRF-CEM",
+        "COLO 205",
+        "DU-145",
+        "EKVX",
+        "HCC-2998",
+        "HCT-116",
+        "HCT-15",
+        "HL-60(TB)",
+        "HOP-62",
+        "HOP-92",
+        "HS 578T",
+        "HT29",
+        "IGROV1",
+        "K-562",
+        "KM12",
+        "LOX IMVI",
+        "M14",
+        "MALME-3M",
+        "MCF7",
+        "MDA-MB-231/ATCC",
+        "MDA-MB-435",
+        "MOLT-4",
+        "NCI-H226",
+        "NCI-H23",
+        "NCI-H322M",
+        "NCI-H460",
+        "NCI-H522",
+        "NCI/ADR-RES",
+        "OVCAR-3",
+        "OVCAR-4",
+        "OVCAR-5",
+        "OVCAR-8",
+        "PC-3",
+        "RPMI-8226",
+        "RXF 393",
+        "SF-268",
+        "SF-295",
+        "SF-539",
+        "SK-MEL-2",
+        "SK-MEL-28",
+        "SK-MEL-5",
+        "SK-OV-3",
+        "SN12C",
+        "SNB-19",
+        "SNB-75",
+        "SR",
+        "SW-620",
+        "T-47D",
+        "TK-10",
+        "U251",
+        "UACC-257",
+        "UACC-62",
+        "UO-31"
+      ]
+    },
+    "almanac_cm47": {
+      "n_cells": 47,
+      "cells": [
+        "786-0",
+        "A498",
+        "A549/ATCC",
+        "ACHN",
+        "BT-549",
+        "CAKI-1",
+        "DU-145",
+        "EKVX",
+        "HCT-116",
+        "HCT-15",
+        "HL-60(TB)",
+        "HOP-62",
+        "HOP-92",
+        "HS 578T",
+        "HT29",
+        "IGROV1",
+        "K-562",
+        "KM12",
+        "LOX IMVI",
+        "MALME-3M",
+        "MCF7",
+        "MDA-MB-231/ATCC",
+        "NCI-H226",
+        "NCI-H23",
+        "NCI-H460",
+        "NCI-H522",
+        "OVCAR-3",
+        "OVCAR-4",
+        "OVCAR-5",
+        "OVCAR-8",
+        "PC-3",
+        "RPMI-8226",
+        "SF-268",
+        "SF-295",
+        "SF-539",
+        "SK-MEL-2",
+        "SK-MEL-28",
+        "SK-MEL-5",
+        "SK-OV-3",
+        "SNB-75",
+        "SR",
+        "SW-620",
+        "T-47D",
+        "U251",
+        "UACC-257",
+        "UACC-62",
+        "UO-31"
+      ]
+    },
+    "almanac_dm47": {
+      "n_cells": 47,
+      "cells": [
+        "786-0",
+        "A498",
+        "A549/ATCC",
+        "ACHN",
+        "BT-549",
+        "CAKI-1",
+        "DU-145",
+        "EKVX",
+        "HCT-116",
+        "HCT-15",
+        "HL-60(TB)",
+        "HOP-62",
+        "HOP-92",
+        "HS 578T",
+        "HT29",
+        "IGROV1",
+        "K-562",
+        "KM12",
+        "LOX IMVI",
+        "MALME-3M",
+        "MCF7",
+        "MDA-MB-231/ATCC",
+        "NCI-H226",
+        "NCI-H23",
+        "NCI-H460",
+        "NCI-H522",
+        "OVCAR-3",
+        "OVCAR-4",
+        "OVCAR-5",
+        "OVCAR-8",
+        "PC-3",
+        "RPMI-8226",
+        "SF-268",
+        "SF-295",
+        "SF-539",
+        "SK-MEL-2",
+        "SK-MEL-28",
+        "SK-MEL-5",
+        "SK-OV-3",
+        "SNB-75",
+        "SR",
+        "SW-620",
+        "T-47D",
+        "U251",
+        "UACC-257",
+        "UACC-62",
+        "UO-31"
+      ]
+    },
+    "oneil": {
+      "n_cells": 35,
+      "cells": [
+        "A2058",
+        "A2780",
+        "A375",
+        "A427",
+        "CAOV3",
+        "DLD1",
+        "ES2",
+        "HCT116",
+        "HT144",
+        "HT29",
+        "KPL1",
+        "LNCAP",
+        "LOVO",
+        "MDAMB436",
+        "MSTO",
+        "NCIH1650",
+        "NCIH2122",
+        "NCIH23",
+        "NCIH460",
+        "NCIH520",
+        "OV90",
+        "OVCAR3",
+        "PA1",
+        "RKO",
+        "RPMI7951",
+        "SKMEL30",
+        "SKMES1",
+        "SKOV3",
+        "SW620",
+        "SW837",
+        "T47D",
+        "UACC62",
+        "UWB1289",
+        "VCAP",
+        "ZR751"
+      ]
+    }
+  }
+}

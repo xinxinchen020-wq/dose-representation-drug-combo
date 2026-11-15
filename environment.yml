@@ -1,0 +1,12 @@
+name: dose-rep-bench
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - numpy
+  - pandas>=2.2
+  - pyarrow
+  - rdkit
+  - openpyxl
+  - pyyaml
+  - pip

@@ -1,0 +1,16 @@
+/data/
+/outputs/
+/runs/
+/checkpoints/
+__pycache__/
+.venv/
+.env
+*.pt
+*.pth
+*.safetensors
+*.parquet
+*.npy
+*.npz
+*.zip
+*.docx
+*.pdf

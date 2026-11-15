@@ -1,0 +1,39 @@
+datasets:
+  - oneil_batch_checked
+  - almanac_dm47_batch_checked
+tasks:
+  centre: INTERP
+  random: RANDOM_IN_RANGE
+  drug1_high_dose: EXTRAP
+  drug2_high_dose: EXTRAP2
+architectures:
+  joint_concatenation: A1
+  within_drug_fusion: A4
+methods:
+  - raw64_fixed
+  - D1
+  - linear64
+  - sin_affine64
+  - linear64_mlp
+  - sin_affine64_mlp
+  - D1u
+  - D3
+focal_methods: [raw64_fixed, linear64_mlp, D3]
+compact_method: compact_scalar_mlp
+learning_rates: [0.0003, 0.001, 0.003]
+tie_order: [0.001, 0.0003, 0.003]
+tie_tolerance: 1.0e-10
+initialisation_seeds: [0, 1, 2]
+additional_seeds: [3, 4]
+pair_seed: 0
+random_seed: 20261016
+followup_pair_seed: 1
+followup_random_seed: 20261018
+rff_seed: 0
+rff_sigma: 0.25
+validation_fraction: 0.25
+epochs: 1000
+patience: 150
+batch_size: 16384
+weight_decay: 0.00001
+gradient_clip_norm: 5.0
