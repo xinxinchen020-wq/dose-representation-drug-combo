@@ -54,3 +54,21 @@ Use `--plan` with either training script to list comparison groups without train
 Learning rate is selected separately for each dataset, task, architecture and dose representation using the mean best validation root mean squared error across seeds 0, 1 and 2. Additional seeds 3 and 4 use the selected rate. The default configuration lists the training settings and maps manuscript terms to the identifiers in existing experiment records. Model and split logic come from the frozen research implementation.
 
 Training logs, learning-rate checks and the runtime snapshot are supplied separately in `Supplementary_Data_1_training_records.zip` alongside the manuscript. Raw data, model weights and individual prediction files are stored locally.
+
+## Supplementary dose-response analyses
+
+Use the original processed snapshots and holdouts prepared above. The surface and synergy analyses read the primary benchmark's validation-selected predictions in `outputs/benchmark`. The LightGBM comparison uses the original O’Neil holdouts and the same Morgan fingerprints and expression features.
+
+```bash
+python -m pip install 'matplotlib>=3.8' scipy lightgbm==4.7.0
+python -m src.eval.dose_response_cases
+python -m src.eval.synergy_ranking
+python -m src.train.lightgbm_comparison --threads 10
+python -m src.eval.lightgbm_comparison --compare-mlp
+```
+
+- **Dose–response surfaces and error decomposition.** Selects surfaces nearest the within-group median of the paired squared-error differences and decomposes the NCI-ALMANAC centre error reduction by doxorubicin status. The script exports SVG, PDF and 600 dpi PNG figures under `outputs/dose_response_followup/surface_cases/`. The figures use Times New Roman when it is installed.
+- **Synergy ranking after centre completion.** Replaces one held-out centre response per NCI-ALMANAC surface and ranks drug pairs by the mean ComboScore across cell lines. Outputs include per-initialisation ranking metrics and sensitivity comparisons using archived scores, grid means and removal of doxorubicin pairs.
+- **O’Neil LightGBM comparison.** Compares direct log-dose, fixed sinusoidal features and fixed random Fourier features in the centre and second-drug high-dose holdouts. Each encoding uses the same two leaf-count settings, with selection by validation RMSE and a 200-round limit. The optional `--compare-mlp` flag adds the original multilayer perceptron results. Use `--smoke` on the training command to check the pipeline on a small subset in a separate output directory.
+
+The defaults write all generated results and models to `outputs/dose_response_followup/`. Each command supports `--help` for input and output paths.
