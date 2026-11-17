@@ -1,4 +1,4 @@
-# Task-dependent performance of dose representations in drug-combination prediction
+# Task-dependent performance and aggregation artefacts of dose representations in drug-combination prediction
 
 Research code for the controlled comparison of eight dose representations in the O’Neil and NCI-ALMANAC drug-combination screens. The benchmark evaluates held-out doses for known drug pairs and cell lines. It uses centre, within-range random, first-drug high-dose and second-drug high-dose holdouts. Extended analyses compare joint concatenation with within-drug fusion and include a compact scalar dose network and a follow-up split.
 
@@ -53,7 +53,7 @@ Use `--plan` with either training script to list comparison groups without train
 
 Learning rate is selected separately for each dataset, task, architecture and dose representation using the mean best validation root mean squared error across seeds 0, 1 and 2. Additional seeds 3 and 4 use the selected rate. The default configuration lists the training settings and maps manuscript terms to the identifiers in existing experiment records. Model and split logic come from the frozen research implementation.
 
-Training logs, learning-rate checks and the runtime snapshot are supplied separately in `Supplementary_Data_1_training_records.zip` alongside the manuscript. Raw data, model weights and individual prediction files are stored locally.
+Candidate training logs, learning-rate and LightGBM leaf-selection records, runtime snapshots and follow-up surface-diagnostic and ComboScore summary tables are supplied separately in `Supplementary_Data_1_training_records.zip` alongside the manuscript. Raw data, model weights and individual prediction files are stored locally.
 
 ## Supplementary dose-response analyses
 
