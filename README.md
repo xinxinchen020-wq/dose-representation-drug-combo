@@ -1,6 +1,6 @@
 # Benchmarking dose representations in drug-combination response prediction exposes extrapolation degradation and aggregation artefacts
 
-Research code for the controlled comparison of eight dose representations in the O’Neil and NCI-ALMANAC drug-combination screens. The benchmark evaluates held-out doses for known drug pairs and cell lines using centre, within-range random, first-drug high-dose and second-drug high-dose holdouts. Extended analyses evaluate within-drug fusion, a compact scalar dose network, an internal follow-up split, cross-family LightGBM controls, surface-level error decompositions and ComboScore ranking utility.
+Research code for the controlled comparison of eight dose representations in the O’Neil and NCI-ALMANAC drug-combination screens. The benchmark evaluates held-out doses for known drug pairs and cell lines using centre, within-range random, first-drug high-dose and second-drug high-dose holdouts. Further analyses test within-drug fusion, a compact scalar dose network, an internal follow-up split, LightGBM controls, surface error decompositions and ComboScore drug-pair ranking.
 
 ## Environment
 
@@ -10,11 +10,11 @@ conda activate dose-rep-bench
 python -m pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124
 ```
 
-Alternatively, install the Python dependencies via `pip install -r requirements.txt` together with the [appropriate PyTorch wheel](https://pytorch.org/get-started/previous-versions/) for your platform. The recorded runtime snapshot lists Python 3.12.15, PyTorch 2.6.0+cu124, NumPy 2.5.3, pandas 3.0.6 and LightGBM 4.7.0. The training runner accepts `--device cpu` for small checks. (`transformers` is only needed if invoking optional `--chemberta` embedding extraction in `src.preprocess.make_drug_reprs`, which is not used in the manuscript benchmark.)
+Alternatively, install Python dependencies from `requirements.txt` alongside the [appropriate PyTorch wheel](https://pytorch.org/get-started/previous-versions/) for your platform. The recorded runtime snapshot lists Python 3.12.15, PyTorch 2.6.0+cu124, NumPy 2.5.3, pandas 3.0.6 and LightGBM 4.7.0. The training runner accepts `--device cpu` for small checks. `transformers` is needed only if passing `--chemberta` to `src.preprocess.make_drug_reprs`, an optional extraction path not used in the benchmark.
 
 ## Quick verification
 
-Run the synthetic end-to-end smoke suite without downloading raw datasets:
+Run the synthetic smoke tests without downloading raw datasets:
 
 ```bash
 python -m unittest discover -s tests -v
@@ -28,11 +28,11 @@ python -m unittest discover -s tests -v
 - **Gene annotation:** supply `data/raw/gene_lists/hgnc_complete_set.txt` from [HGNC](https://www.genenames.org/download/archive/). The repository includes the ordered panel of 977 genes derived from the landmark annotations in [GEO GSE92742](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE92742).
 - **O’Neil identifiers:** supply `DrugComb_cell_line_identifiers.xlsx` and `DrugComb_drug_identifiers.xlsx` under `data/raw/drugcomb/`. Reference preparation uses the cell-line and drug identifier sheets from [DrugComb](https://drugcomb.org/). The repository includes the experiment's cell-line mappings and additional oxaliplatin structure.
 
-Use the same input snapshots when comparing numerical results with the manuscript. The source datasets are subject to their providers' terms. The MIT licence applies to the code in this repository.
+Use the same input snapshots when comparing numerical results with the paper. The source datasets remain subject to their providers' terms. The MIT licence applies to all code in this repository.
 
 ## Prepare the two datasets
 
-Run the following from the repository root. Reference preparation builds the entity dictionaries and aligned expression arrays. The final two commands select the complete experimental grids used for analysis.
+Run the following commands from the repository root. Reference preparation builds the entity dictionaries and aligned expression arrays, and the final two commands select the complete experimental grids used for analysis.
 
 ```bash
 python -m src.preprocess.convert_oneil_workbook
@@ -43,7 +43,7 @@ python -m src.preprocess.build_oneil_grids --raw data/raw/oneil/oneil_raw.csv --
 python -m src.preprocess.build_almanac_grids --raw data/raw/almanac/NCL_Combo_Response.csv --reference data/reference/almanac_dm47 --out data/processed/almanac_dm47_batch_checked
 ```
 
-If you already have the processed snapshots, place each dataset in its corresponding directory under `data/processed/`. Each directory needs `pairs.parquet`, `drug_reprs.npz` with Morgan fingerprints and `cell_expression.npy`.
+If you already have the processed snapshots, place each dataset under `data/processed/`. Each directory needs `pairs.parquet`, `drug_reprs.npz` with Morgan fingerprints and `cell_expression.npy`.
 
 ## Run the benchmark
 
@@ -57,15 +57,15 @@ bash scripts/run_extended_ablations.sh
 python -m src.eval.metrics_and_ranks --extended --output outputs/extended_metrics.csv
 ```
 
-To inspect comparison groups without training, run `python -m src.train.train_runner primary --plan` or `python -m src.train.train_runner extended --plan` (or pass `--plan` to `bash scripts/run_all_benchmarks.sh --plan` / `bash scripts/run_extended_ablations.sh --plan`). The primary run comprises 64 groups and 576 candidate fits. The extended run reuses matching primary fits and adds two initialisations at the selected learning rate for the original centre and random conditions. The follow-up comparison uses three initialisations with seeds 1 for pair assignment and 20261018 for dose sampling.
+To inspect comparison groups without training, run `python -m src.train.train_runner primary --plan` or `python -m src.train.train_runner extended --plan` (or pass `--plan` to `bash scripts/run_all_benchmarks.sh --plan` or `bash scripts/run_extended_ablations.sh --plan`). The primary benchmark covers 64 comparison groups (576 candidate fits). The extended run reuses matching primary fits and adds two initialisations at the selected learning rate for the original centre and random conditions. The follow-up comparison uses three initialisations with seeds 1 for pair assignment and 20261018 for dose sampling.
 
-Learning rate is selected separately for each dataset, task, architecture and dose representation using the mean best validation root mean squared error across seeds 0, 1 and 2. Additional seeds 3 and 4 use the selected rate. `configs/default_benchmark.yaml` lists all training settings and maps manuscript terms to identifiers in existing experiment records.
+Learning rate is selected separately for each dataset, task, architecture and dose representation using the mean best validation root mean squared error across seeds 0, 1 and 2. Additional seeds 3 and 4 use the selected rate. `configs/default_benchmark.yaml` lists all training settings and maps the paper's method labels to the identifiers used in experiment records.
 
-Candidate training logs, learning-rate and LightGBM leaf-selection records, runtime snapshots and follow-up surface-diagnostic and ComboScore summary tables are supplied separately in `Supplementary_Data_1_training_records.zip` alongside the manuscript. Raw data, model weights and individual prediction files are stored locally.
+Candidate training logs, learning-rate and LightGBM leaf-selection records, runtime snapshots and follow-up surface-diagnostic and ComboScore summary tables are supplied separately in `Supplementary_Data_1_training_records.zip`. Raw screening files, model weights and per-observation prediction arrays are excluded from version control and generated locally when running the pipeline.
 
 ## Supplementary dose-response analyses
 
-Use the original processed snapshots and holdouts prepared above. The surface and synergy analyses read the primary benchmark's validation-selected predictions in `outputs/benchmark`. The LightGBM comparison uses the original O’Neil holdouts and the same Morgan fingerprints and expression features.
+Use the original processed snapshots and holdouts prepared above. The surface and synergy scripts read the primary benchmark's validation-selected predictions in `outputs/benchmark`, and the LightGBM comparison uses the original O’Neil holdouts with identical Morgan fingerprints and expression features.
 
 ```bash
 python -m src.eval.dose_response_cases
@@ -74,19 +74,19 @@ python -m src.train.lightgbm_comparison --threads 10
 python -m src.eval.lightgbm_comparison --compare-mlp
 ```
 
-- **Dose–response surfaces and error decomposition (`src.eval.dose_response_cases`):** Selects surfaces nearest the within-group median of the paired squared-error differences and decomposes the NCI-ALMANAC centre error reduction by doxorubicin status, exporting SVG, PDF and 600 dpi PNG figures under `outputs/dose_response_followup/surface_cases/`.
-- **Synergy ranking after centre completion (`src.eval.synergy_ranking`):** Replaces one held-out centre response per NCI-ALMANAC surface and ranks drug pairs by the mean ComboScore across cell lines, writing summary tables and per-initialisation metrics.
+- **Dose–response surfaces and error decomposition (`src.eval.dose_response_cases`):** Selects surfaces nearest the within-group median of paired squared-error differences and breaks down the NCI-ALMANAC centre error reduction by doxorubicin status. Figures (SVG, PDF and 600 dpi PNG) are written to `outputs/dose_response_followup/surface_cases/`.
+- **Synergy ranking after centre completion (`src.eval.synergy_ranking`):** Replaces one held-out centre response per NCI-ALMANAC surface and ranks drug pairs by mean ComboScore across cell lines. Outputs include summary tables and per-initialisation ranking metrics.
 - **O’Neil LightGBM comparison (`src.train.lightgbm_comparison`, `src.eval.lightgbm_comparison`):** Compares direct log-dose, fixed sinusoidal features and fixed random Fourier features in the centre and second-drug high-dose holdouts (`--compare-mlp` merges original neural benchmarks). Pass `--smoke` to `src.train.lightgbm_comparison` for a quick subset check.
 
-Defaults write generated results and models under `outputs/dose_response_followup/`. Pass `--help` to any module for CLI options.
+By default, outputs and trained models are written under `outputs/dose_response_followup/`. Run any module with `--help` to see path and runtime options.
 
 ## Repository layout
 
 - `configs/`: benchmark configuration YAML, cell-line subsets and mappings, L1000 gene panel and supplementary drug SMILES.
 - `src/preprocess/`: raw workbook conversion, DepMap/DrugComb alignment, feature extraction and exact grid reconstruction.
-- `src/splits/`: deterministic dose-grid holdout split generators (`centre`, `random`, `drug1_high_dose`, `drug2_high_dose`).
+- `src/splits/`: deterministic dose-grid holdout split scripts (`centre`, `random`, `drug1_high_dose`, `drug2_high_dose`).
 - `src/models/`: PyTorch dose encoder modules (`DOSE_ENCS`) and `ComboModel` fusion architectures (`A1`, `A4`).
 - `src/train/`: single-fit runner, benchmark orchestrator and LightGBM training pipeline.
 - `src/eval/`: metric summaries, leave-one-drug-out decomposition, surface case plots, ComboScore ranking and LightGBM/bootstrap comparison.
-- `scripts/`: convenience shell entrypoints for primary and extended benchmark suites.
-- `tests/`: synthetic end-to-end smoke tests runnable without external datasets.
+- `scripts/`: shell scripts for the primary and extended benchmark runs.
+- `tests/`: synthetic smoke tests that run without external datasets.
