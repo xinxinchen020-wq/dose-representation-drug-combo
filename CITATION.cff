@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+title: "Benchmarking dose representations in drug-combination response prediction exposes extrapolation degradation and aggregation artefacts"
+message: "If you use this benchmark code or evaluation protocol, please cite this repository."
+type: software
+authors:
+  - family-names: Chen
+    given-names: Xin
+    affiliation: "Chongqing University, Chongqing, China"
+  - family-names: Xu
+    given-names: Huanhua
+    affiliation: "Jiangxi University of Chinese Medicine, Nanchang, China"
+repository-code: "https://github.com/xinxinchen020-wq/dose-representation-drug-combo"
+license: MIT
+keywords:
+  - drug combinations
+  - dose-response prediction
+  - dose representation
+  - dose holdout
+  - ablation analysis

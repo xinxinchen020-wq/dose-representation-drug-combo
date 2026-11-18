@@ -1,4 +1,4 @@
-"""按原始批次的完整剂量网格构建独立数据版本，复用已有药物与细胞特征。"""
+"""Build complete batch-checked O'Neil dose grids while reusing aligned drug and cell features."""
 import argparse
 import hashlib
 import json
@@ -18,9 +18,9 @@ RULE_VERSION = "oneil-complete-batch-grid-v1"
 def load_raw(path):
     frame = pd.read_csv(path)
     if frame.columns[0] != "BatchID" or len(frame.columns) != len(RAW_NAMES):
-        raise ValueError("原始批次列或列数不符合O’Neil补充材料")
+        raise ValueError("Input CSV columns do not match O'Neil supplementary sheet layout")
     frame.columns = RAW_NAMES
-    frame["SOURCE_ROW"] = np.arange(2, len(frame) + 2)  # 原始工作簿行号，含表头。
+    frame["SOURCE_ROW"] = np.arange(2, len(frame) + 2)
     swapped = frame.NSC1 > frame.NSC2
     for first, second in (("NSC1", "NSC2"), ("CONC1", "CONC2")):
         values = frame.loc[swapped, first].copy()
@@ -32,17 +32,17 @@ def load_raw(path):
     frame["N_TECHNICAL_REPLICATES"] = frame[values].notna().sum(axis=1)
     frame["PERCENTGROWTH"] = 100 * frame[values].mean(axis=1)
     if not np.isfinite(frame[["CONC1", "CONC2", "PERCENTGROWTH"]]).all().all():
-        raise ValueError("原始数据存在缺失或非有限剂量、响应，需要单独处理")
+        raise ValueError("Missing or non-finite doses/responses detected in O'Neil raw data")
     if (frame[["CONC1", "CONC2"]] <= 0).any().any():
-        raise ValueError("本版本仅支持严格正浓度")
+        raise ValueError("Strictly positive concentrations are required")
     return frame
 
 
 def select_complete_batches(frame):
-    """只按批次编号和完整网格决定保留批次，不按响应或测试误差决定。"""
+    """Select batches solely by batch identifier and exact complete 4x4 grid geometry."""
     block_keys = CURVE_KEYS + ["BATCH_ID"]
     if frame.duplicated(block_keys + ["CONC1", "CONC2"]).any():
-        raise ValueError("同一批次存在重复剂量点，不能当作新的技术重复")
+        raise ValueError("Duplicate dose coordinates found within the same batch")
     blocks = frame.groupby(block_keys, sort=True).agg(
         rows=("CONC1", "size"),
         doses1=("CONC1", lambda values: tuple(sorted(values.unique()))),
@@ -54,7 +54,7 @@ def select_complete_batches(frame):
     for _, curve in blocks.groupby(CURVE_KEYS, sort=True):
         complete = curve[curve.complete_four_by_four].sort_values("BATCH_ID")
         if complete.empty:
-            raise ValueError("有组合和细胞不具备完整四乘四批次，不能静默丢弃")
+            raise ValueError("Combination and cell line lack a complete 4x4 batch")
         anchor = complete.iloc[0]
         for _, block in curve.iterrows():
             keep = (block.complete_four_by_four and block.doses1 == anchor.doses1
@@ -68,7 +68,7 @@ def select_complete_batches(frame):
     selected = selected[selected.selected].drop(columns="selected")
     point_keys = CURVE_KEYS + ["CONC1", "CONC2"]
     points = selected.groupby(point_keys, sort=True, as_index=False).agg(
-        PERCENTGROWTH=("PERCENTGROWTH", "mean"),  # 每个批次均值权重相同。
+        PERCENTGROWTH=("PERCENTGROWTH", "mean"),
         N_TECHNICAL_REPLICATES=("N_TECHNICAL_REPLICATES", "sum"),
         N_BATCHES=("BATCH_ID", "nunique"),
         SOURCE_BATCHES=("BATCH_ID", lambda values: ",".join(map(str, sorted(values.unique())))),
@@ -81,13 +81,13 @@ def sha256(path):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--raw", type=Path, required=True)
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     if args.out.exists():
-        raise FileExistsError("请使用新的数据目录，原始数据和旧版本不覆盖")
+        raise FileExistsError(f"Output directory already exists: {args.out}")
     reference = pd.read_parquet(args.reference / "pairs.parquet")
     frame = load_raw(args.raw)
     all_raw_rows = len(frame)
@@ -96,10 +96,10 @@ def main():
     metadata_columns = ["DRUG1_IDX", "DRUG2_IDX", "CELL_IDX", "SCREENER", "PANEL", "PAIR"]
     metadata = reference[CURVE_KEYS + metadata_columns].drop_duplicates()
     if metadata.duplicated(CURVE_KEYS).any():
-        raise ValueError("已有实体与特征映射不一致")
+        raise ValueError("Inconsistent entity-to-index mapping in reference dataset")
     points = points.merge(metadata, on=CURVE_KEYS, how="left", validate="many_to_one")
     if points[metadata_columns].isna().any().any():
-        raise ValueError("新剂量表有实体无法复用旧特征")
+        raise ValueError("Unmatched entities between batch-checked grids and reference features")
     for axis in (1, 2):
         column = f"CONC{axis}_LOG"
         points[column] = np.log10(points[f"CONC{axis}"])
@@ -132,9 +132,9 @@ def main():
         rule_version=RULE_VERSION, raw_source=str(args.raw), raw_sha256=sha256(args.raw),
         reference=str(args.reference), reference_sha256=sha256(args.reference / "pairs.parquet"),
         dataset_sha256=sha256(args.out / "pairs.parquet"), feature_hashes=copied_hashes,
-        target_definition="100 × mean of available viability1..4 within batch; equal mean of exactly matching batches",
-        dose_definition="log10(concentration in micromolar); original concentration values retained",
-        selection_rule="Use lowest-numbered complete batch grid; merge only batches whose two concentration grids exactly match it",
+        target_definition="100 x mean of available viability1..4 within batch; equal mean of exact matching batches",
+        dose_definition="log10(concentration in uM); original concentration values retained",
+        selection_rule="Use lowest-numbered complete batch grid; merge only batches whose two concentration grids match exactly",
         raw_rows=all_raw_rows, cell_filtered_raw_rows=len(frame), selected_raw_rows=len(selected),
         omitted_raw_rows=len(frame) - len(selected), n_curves=len(metadata), main_table_rows=len(points),
         n_cells=int(points.CELLNAME.nunique()), n_drugs=len(set(points.NSC1) | set(points.NSC2)),

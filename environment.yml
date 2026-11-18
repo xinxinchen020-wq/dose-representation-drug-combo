@@ -9,4 +9,7 @@ dependencies:
   - rdkit
   - openpyxl
   - pyyaml
+  - scipy
+  - matplotlib>=3.8
+  - lightgbm=4.7.0
   - pip

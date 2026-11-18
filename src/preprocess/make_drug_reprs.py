@@ -1,18 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-生成四种分子表征（缺口1：分子表征谱系）
-==========================================
-
-产出 <data>/drug_reprs.npz，包含：
-  onehot    (104, 104)     恒等矩阵，无化学信息（下界）
-  rdkit     (104, D)       RDKit 理化描述符（标准化）
-  morgan    (104, 2048)    Morgan 指纹
-  chemberta (104, 768)     ChemBERTa 分子语言模型嵌入（均值池化）
-  nsc       (104,)         药物顺序
-
-用法：
-    python make_drug_reprs.py --data data/data_v2 --chemberta <模型目录>
-"""
+"""Generate molecular drug representations (one-hot, RDKit descriptors, Morgan fingerprints, optional ChemBERTa)."""
 import argparse
 import json
 import os
@@ -28,7 +14,7 @@ def log(m):
 
 
 def parse_smiles(smi, Chem):
-    """解析 SMILES。金属配合物默认价键规则会拒绝，降级处理。"""
+    """Parse SMILES with fallback sanitization for organometallic complexes."""
     mol = Chem.MolFromSmiles(smi)
     if mol is not None:
         return mol, "normal"
@@ -43,9 +29,9 @@ def parse_smiles(smi, Chem):
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--data", required=True)
-    ap.add_argument("--chemberta", default=None, help="ChemBERTa 模型目录")
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--data", required=True, help="Dataset directory containing drug_smiles.json")
+    ap.add_argument("--chemberta", default=None, help="Optional local ChemBERTa model directory")
     ap.add_argument("--device", default="cuda")
     args = ap.parse_args()
 
@@ -56,7 +42,7 @@ def main():
     d = json.load(open(os.path.join(args.data, "drug_smiles.json"), encoding="utf-8"))
     order, smiles = d["order"], d["smiles"]
     n = len(order)
-    log(f"药物 {n} 个")
+    log(f"drugs={n}")
 
     mols, hows = [], []
     for s in smiles:
@@ -64,17 +50,16 @@ def main():
         mols.append(m)
         hows.append(h)
     from collections import Counter
-    log(f"SMILES 解析: {dict(Counter(hows))}")
+    log(f"SMILES parsed: {dict(Counter(hows))}")
 
     out = {"nsc": np.array(order)}
 
-    # ---- 1. one-hot ----
+    # 1. One-hot drug identity matrix
     out["onehot"] = np.eye(n, dtype=np.float32)
     log(f"onehot    {out['onehot'].shape}")
 
-    # ---- 2. RDKit 描述符 ----
+    # 2. Standardized RDKit physicochemical descriptors
     names = [x[0] for x in Descriptors.descList]
-    # 逐分子算全部描述符
     raw = np.full((n, len(names)), np.nan, dtype=np.float64)
     for i, mol in enumerate(mols):
         if mol is None:
@@ -86,26 +71,23 @@ def main():
                     raw[i, j] = v
             except Exception:
                 pass
-    # 保留在 ≥95% 分子上都有效的描述符
     valid = np.isfinite(raw).mean(axis=0) >= 0.95
     keep_idx = np.flatnonzero(valid)
     desc = raw[:, keep_idx]
-    # 缺失值用列中位填补
     for j in range(desc.shape[1]):
         col = desc[:, j]
         bad = ~np.isfinite(col)
         if bad.any():
             desc[bad, j] = np.nanmedian(col)
-    # 去掉常数与极端量纲：截尾 + 标准化
     desc = np.clip(desc, np.nanpercentile(desc, 1, axis=0), np.nanpercentile(desc, 99, axis=0))
     df_mean, df_std = desc.mean(0), desc.std(0)
     df_std[df_std == 0] = 1.0
     desc = ((desc - df_mean) / df_std).astype(np.float32)
     out["rdkit"] = desc
     out["rdkit_names"] = np.array([names[i] for i in keep_idx])
-    log(f"rdkit     {desc.shape}   （保留 {len(keep_idx)}/{len(names)} 个描述符）")
+    log(f"rdkit     {desc.shape} (retained {len(keep_idx)}/{len(names)} descriptors)")
 
-    # ---- 3. Morgan ----
+    # 3. Morgan fingerprints (radius 2, 2048 bits)
     mor = np.zeros((n, 2048), dtype=np.float32)
     for i, mol in enumerate(mols):
         if mol is None:
@@ -116,11 +98,11 @@ def main():
         except Exception:
             pass
     out["morgan"] = mor
-    log(f"morgan    {mor.shape}   （非零位均值 {mor.sum(1).mean():.1f}）")
+    log(f"morgan    {mor.shape} (mean active bits={mor.sum(1).mean():.1f})")
 
-    # ---- 4. ChemBERTa ----
+    # 4. Optional ChemBERTa embeddings
     if args.chemberta and os.path.isdir(args.chemberta):
-        log(f"加载 ChemBERTa: {args.chemberta}")
+        log(f"Loading ChemBERTa from {args.chemberta}")
         import torch
         from transformers import AutoTokenizer, AutoModel
         tok = AutoTokenizer.from_pretrained(args.chemberta)
@@ -138,16 +120,16 @@ def main():
         out["chemberta"] = embs
         log(f"chemberta {embs.shape}")
         del mdl
-        import torch as _t
-        _t.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
     else:
-        log("跳过 ChemBERTa（未指定模型目录）")
+        log("Skipping ChemBERTa (no --chemberta directory supplied)")
 
     p = os.path.join(args.data, "drug_reprs.npz")
     np.savez_compressed(p, **out)
-    log(f"已写出 {p}")
-    log("键: " + ", ".join(f"{k}{out[k].shape}" for k in
-                          ["onehot", "rdkit", "morgan", "chemberta"] if k in out))
+    log(f"Wrote {p}")
+    log("keys: " + ", ".join(f"{k}{out[k].shape}" for k in
+                             ["onehot", "rdkit", "morgan", "chemberta"] if k in out))
 
 
 if __name__ == "__main__":

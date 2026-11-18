@@ -11,14 +11,12 @@ import pandas as pd
 import torch
 import torch.nn as nn
 
-
-# ---------------------------------------------------------------- 剂量表征
-
 from src.models.dose_encoders import DOSE_ENCS, fit_dose_input_transform, module_hash
 from src.models.fusion_networks import ComboModel
 
+
 def grid_structure(df):
-    """用实际、互异的剂量点判断曲面完整性，重复测量不改变网格。"""
+    """Evaluate surface completeness from distinct dose pairs; replicates do not alter grid size."""
     g = df.groupby(["PAIR", "CELLNAME"], sort=False)
     r1 = g["CONC1_LOG"].rank(method="dense")
     r2 = g["CONC2_LOG"].rank(method="dense")
@@ -34,17 +32,14 @@ def grid_structure(df):
 
 
 def grid_center_mask(df):
-    """标记每个 (药对, 细胞系) 完整剂量网格的「中心点」
+    """Mark interior centre dose points for each complete (drug pair, cell line) grid.
 
-    中心按【秩】定义：n 档时中心秩为 {lo, hi}，lo=(n+1)//2, hi=(n+2)//2
+    Centre ranks are defined as lo = (n + 1) // 2, hi = (n + 2) // 2:
+      n=3 -> {2}    (1 point per surface; NCI-ALMANAC 3x3)
+      n=4 -> {2, 3} (4 points per surface; O'Neil 4x4)
+      n=5 -> {3}    (1 point per surface)
 
-        n=3 → {2}      1 点      ALMANAC 3×3：训外圈 8 点 → 测中心 1 点
-        n=4 → {2,3}    4 点      O'Neil  4×4：训外圈 12 点 → 测中心 4 点
-        n=5 → {3}      1 点
-        n=6 → {3,4}    4 点
-
-    只对**完整网格**（n1×n2 == 互异剂量点数）且 min(n1,n2) >= 3 的单元有效；
-    其余单元返回 False（不参与 INTERP 的测试集）。
+    Applies only to complete grids with min(n1, n2) >= 3.
     """
     r1, r2, n1, n2, complete = grid_structure(df)
     lo1, hi1 = (n1 + 1) // 2, (n1 + 2) // 2
@@ -54,28 +49,22 @@ def grid_center_mask(df):
     return (complete & in1 & in2).fillna(False).values
 
 
-# ---------------------------------------------------------------- 数据划分
-
-#: 需要按「折」留出实体的协议
+#: Protocols with fold-based entity holdouts
 FOLD_PROTOCOLS = ("LCO", "LODO", "LDO")
-#: 需要完整剂量网格的协议
+#: Protocols requiring complete dose grids
 GRID_PROTOCOLS = ("INTERP", "EXTRAP", "EXTRAP2")
 DOSE_SPLIT_VERSION = "known-curve-dose-v3"
-#: 全部协议
+#: Supported split protocols
 PROTOCOLS = ("LTO", "LPO", "LCO", "LODO", "LDO", "INTERP", "EXTRAP", "EXTRAP2")
 
 
 def _entity_keys(df):
-    """药物的实体键（LODO / LDO 用）。ALMANAC 为 NSC 整数，O'Neil 为药物名字符串。"""
+    """Return drug entity identifiers (integer NSC codes for ALMANAC, names for O'Neil)."""
     return df["NSC1"].values, df["NSC2"].values
 
 
 def _pool_split(pair_codes, m_pool, m_te, rng, val_frac=0.25):
-    """在池子内按药对切 train/val，避免泄漏。
-
-    val_frac 是**池内**比例。实体/网格协议的测试集由结构决定，
-    池内取 25% 作验证集 → 若测试集占 20%，则总体约为 60/20/20。
-    """
+    """Partition the non-test pool into train and validation sets grouped by drug pair."""
     pool_codes = pair_codes[m_pool]
     uniq = np.unique(pool_codes)
     rng.shuffle(uniq)
@@ -87,19 +76,11 @@ def _pool_split(pair_codes, m_pool, m_te, rng, val_frac=0.25):
 
 
 def make_split(df, protocol, seed=42, kfold=5, fold=0, val_frac=0.25):
-    """返回 (train_idx, val_idx, test_idx)。
+    """Return disjoint (train_idx, val_idx, test_idx) arrays for the given protocol.
 
-    原子单位（避免同一单元跨集合泄漏）：
-      LTO    单位 = (药对, 细胞系, 剂量1, 剂量2)   —— 剂量点级
-      LPO    单位 = 药对
-      LCO    单位 = 细胞系（整折留出）
-      LODO   单位 = 药物（整折留出；测试对中至少一个未知）
-      LDO    单位 = 药物（整折留出；测试对中两个都未知，跨池行两边都不用）
-      INTERP 验证/测试 = 完整曲面中心点，同曲面外圈用于训练
-      EXTRAP 验证/测试 = 完整曲面药物1最高档，同曲面低档用于训练
-      EXTRAP2 验证/测试 = 对应药物2最高档
-
-    实现用 numpy 编码 + np.unique(return_inverse)，避免在百万行上做字符串拼接。
+    Grid holdouts assign held-out points at the surface level and partition
+    held-out pairs between validation and test sets while keeping outer
+    training points across all pairs in the training pool.
     """
     rng = np.random.RandomState(seed)
     n = len(df)
@@ -115,21 +96,26 @@ def make_split(df, protocol, seed=42, kfold=5, fold=0, val_frac=0.25):
                          (c1 * 1000).round().astype(np.int64),
                          (c2 * 1000).round().astype(np.int64)], axis=1)
         _, unit = np.unique(keys, axis=0, return_inverse=True)
-        uniq = np.unique(unit); rng.shuffle(uniq)
-        n_tr = int(0.6 * len(uniq)); n_va = int(0.2 * len(uniq))
-        m_tr = np.isin(unit, uniq[:n_tr]); m_va = np.isin(unit, uniq[n_tr:n_tr + n_va])
+        uniq = np.unique(unit)
+        rng.shuffle(uniq)
+        n_tr = int(0.6 * len(uniq))
+        n_va = int(0.2 * len(uniq))
+        m_tr = np.isin(unit, uniq[:n_tr])
+        m_va = np.isin(unit, uniq[n_tr:n_tr + n_va])
         return idx[m_tr], idx[m_va], idx[~(m_tr | m_va)]
 
     if protocol == "LPO":
-        uniq = np.unique(pair_codes); rng.shuffle(uniq)
-        n_tr = int(0.6 * len(uniq)); n_va = int(0.2 * len(uniq))
+        uniq = np.unique(pair_codes)
+        rng.shuffle(uniq)
+        n_tr = int(0.6 * len(uniq))
+        n_va = int(0.2 * len(uniq))
         m_tr = np.isin(pair_codes, uniq[:n_tr])
         m_va = np.isin(pair_codes, uniq[n_tr:n_tr + n_va])
         return idx[m_tr], idx[m_va], idx[~(m_tr | m_va)]
 
     if protocol in GRID_PROTOCOLS:
         if not 0 < val_frac < 1:
-            raise ValueError("剂量留出的验证药对比例必须在0和1之间")
+            raise ValueError("Validation pair fraction for dose holdouts must lie strictly between 0 and 1")
         if protocol == "INTERP":
             held = grid_center_mask(df)
         else:
@@ -138,7 +124,7 @@ def make_split(df, protocol, seed=42, kfold=5, fold=0, val_frac=0.25):
             held = (complete & at_high).fillna(False).to_numpy()
         eligible_pairs = np.unique(pair_codes[held])
         if len(eligible_pairs) < 2:
-            raise ValueError("剂量留出至少需要两个具有完整曲面的药对，以分开验证与测试")
+            raise ValueError("Dose holdout requires at least two pairs with complete surfaces to separate validation and test")
         rng.shuffle(eligible_pairs)
         n_va = min(len(eligible_pairs) - 1,
                    max(1, int(val_frac * len(eligible_pairs))))
@@ -163,32 +149,33 @@ def make_split(df, protocol, seed=42, kfold=5, fold=0, val_frac=0.25):
             m_te = np.isin(cell_arr, held)
             m_pool = ~m_te
         else:
-            in_h1 = np.isin(d1, held); in_h2 = np.isin(d2, held)
+            in_h1 = np.isin(d1, held)
+            in_h2 = np.isin(d2, held)
             if protocol == "LODO":
-                m_te = in_h1 | in_h2                 # 至少一个药未知
-                m_pool = ~m_te                       # 池 = 两个药都已知
+                m_te = in_h1 | in_h2
+                m_pool = ~m_te
             else:  # LDO
-                m_te = in_h1 & in_h2                 # 两个药都未知
+                m_te = in_h1 & in_h2
                 train_drugs = np.setdiff1d(ents, held)
                 m_pool = (np.isin(d1, train_drugs) & np.isin(d2, train_drugs))
-                # 跨池的行两边都不用 → 数据大幅削减（参考论文报 ~68%）
         m_tr, m_va, _ = _pool_split(pair_codes, m_pool, m_te, rng, val_frac)
         return idx[m_tr], idx[m_va], idx[m_te]
 
-    raise NotImplementedError(f"protocol {protocol} 尚未实现")
+    raise NotImplementedError(f"Protocol {protocol} is not implemented")
 
-
-# ---------------------------------------------------------------- 指标
 
 def metrics(y, p):
-    y = np.asarray(y, dtype=np.float64); p = np.asarray(p, dtype=np.float64)
+    """Compute RMSE, MAE, Pearson, Spearman, R^2, and sample count."""
+    y = np.asarray(y, dtype=np.float64)
+    p = np.asarray(p, dtype=np.float64)
     e = y - p
     out = {"rmse": float(np.sqrt(np.mean(e ** 2))), "mae": float(np.mean(np.abs(e)))}
     if y.std() > 0 and p.std() > 0:
         out["pearson"] = float(np.corrcoef(y, p)[0, 1])
         out["spearman"] = float(np.corrcoef(np.argsort(np.argsort(y)),
                                             np.argsort(np.argsort(p)))[0, 1])
-    ss_res = np.sum(e ** 2); ss_tot = np.sum((y - y.mean()) ** 2)
+    ss_res = np.sum(e ** 2)
+    ss_tot = np.sum((y - y.mean()) ** 2)
     out["r2"] = float(1 - ss_res / ss_tot) if ss_tot > 0 else float("nan")
     out["n"] = int(len(y))
     return out
@@ -196,48 +183,45 @@ def metrics(y, p):
 
 def count_params(dose_enc_id, arch="A1", drug_dim=2048, cell_dim=977,
                  hidden=512, dropout=0.2):
-    """统计某种剂量编码的全模型参数量及其自身参数量"""
+    """Return (total_params, dose_encoder_params) for a given encoder and architecture."""
     m = ComboModel(drug_dim, cell_dim, dose_enc_id, arch, hidden=hidden, dropout=dropout)
     total = sum(p.numel() for p in m.parameters())
     enc = sum(p.numel() for p in m.dose_enc.parameters())
     return total, enc
 
 
-# ---------------------------------------------------------------- 主流程
-
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", required=True, help="processed 配置目录（含 pairs.parquet）")
+    ap.add_argument("--data", required=True, help="Processed dataset directory containing pairs.parquet")
     ap.add_argument("--dose-enc", required=True, choices=list(DOSE_ENCS))
     ap.add_argument("--arch", required=True, choices=["A1", "A2", "A3", "A4"])
     ap.add_argument("--protocol", required=True, choices=list(PROTOCOLS),
-                    help="实体留出或INTERP/EXTRAP/EXTRAP2剂量留出")
-    ap.add_argument("--kfold", type=int, default=5, help="LCO/LODO/LDO 的折数")
-    ap.add_argument("--fold", type=int, default=0, help="LCO/LODO/LDO 第几折作测试集")
+                    help="Entity or dose-grid holdout protocol (INTERP/EXTRAP/EXTRAP2)")
+    ap.add_argument("--kfold", type=int, default=5, help="Number of folds for LCO/LODO/LDO")
+    ap.add_argument("--fold", type=int, default=0, help="Test fold index for LCO/LODO/LDO")
     ap.add_argument("--val-frac", type=float, default=0.25,
-                    help="剂量协议：留出目标点的验证药对比例；实体协议：训练池的验证比例")
+                    help="Fraction of eligible pairs or pool assigned to validation")
     ap.add_argument("--save-pred", action="store_true",
-                    help="保存测试集预测（供机制分析）")
+                    help="Save test-set predictions to test_pred.npz")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--split-seed", type=int, default=None,
-                    help="独立的数据划分种子；默认沿用模型初始化种子")
+                    help="Optional split seed; defaults to model initialization seed")
     ap.add_argument("--shared-backbone-init", action="store_true",
-                    help="剂量层使用独立随机状态，使相同宽度的共同预测部分初始化一致")
+                    help="Initialize the dose branch under an isolated RNG state for matched backbones")
     ap.add_argument("--dose-input-scale", choices=["none", "train_standardized"], default="none",
-                    help="保留对数剂量，或按训练剂量的合并均值和标准差变换")
+                    help="Keep raw log10(uM) doses or standardize using training-split statistics")
     ap.add_argument("--epochs", type=int, default=1000,
-                    help="**上限**轮数（早停会提前结束）")
+                    help="Maximum training epochs")
     ap.add_argument("--patience", type=int, default=50,
-                    help="早停：验证 RMSE 连续多少轮无改善即停止")
-    ap.add_argument("--min-delta", type=float, default=0.0, help="判定「改善」的最小幅度")
+                    help="Early-stopping patience on validation RMSE")
+    ap.add_argument("--min-delta", type=float, default=0.0, help="Minimum validation RMSE improvement")
     ap.add_argument("--batch-size", type=int, default=16384)
     ap.add_argument("--lr", type=float, default=1e-3)
-    # ---- 周期编码的频率定标（见各编码器的 docstring）----
     ap.add_argument("--sigma", type=float, default=0.25,
-                    help="D3/D4 的 Fourier 频率标准差（Tancik 定标：σ≤1/(4Δx)=0.25）")
+                    help="Random Fourier frequency scale for D3/D4 (default 0.25)")
     ap.add_argument("--w0", type=float, default=7.0,
-                    help="D5 SIREN 的频率（SIREN 定标：ω₀=30/(输入跨度/2)≈7）")
-    ap.add_argument("--subset", type=float, default=1.0, help="采样比例（调试用）")
+                    help="SIREN frequency scale w0 for D5 (default 7.0)")
+    ap.add_argument("--subset", type=float, default=1.0, help="Optional subsampling fraction for debugging")
     ap.add_argument("--hidden", type=int, default=512)
     ap.add_argument("--dropout", type=float, default=0.2)
     ap.add_argument("--device", default="cuda:0")
@@ -245,13 +229,14 @@ def main():
     ap.add_argument("--drug-feat", default="morgan",
                     choices=["onehot", "rdkit", "morgan", "chemberta"])
     ap.add_argument("--cell-feat", default="expr", choices=["expr", "onehot"],
-                    help="细胞系表征：expr=表达谱（默认）/ onehot=独热（无生物学信息，对照用）")
+                    help="Cell-line representation: expr (default) or onehot")
     ap.add_argument("--shuffle-drug-cell", action="store_true",
-                    help="随机打乱药物↔细胞系配对（防 shortcut 对照）")
+                    help="Randomly permute drug-cell pairings as a shortcut control")
     ap.add_argument("--shuffle-seed", type=int, default=0)
     args = ap.parse_args()
 
-    torch.manual_seed(args.seed); np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
     split_seed = args.seed if args.split_seed is None else args.split_seed
     cfg = os.path.basename(os.path.normpath(args.data))
 
@@ -275,7 +260,9 @@ def main():
     logf = open(os.path.join(run_dir, "train.log"), "w", encoding="utf-8")
 
     def log(m):
-        print(m, flush=True); logf.write(str(m) + "\n"); logf.flush()
+        print(m, flush=True)
+        logf.write(str(m) + "\n")
+        logf.flush()
 
     log(f"=== {tag} ===")
     log(f"args: {vars(args)}")
@@ -284,50 +271,49 @@ def main():
     df = pd.read_parquet(os.path.join(D, "pairs.parquet"))
     if args.subset < 1.0:
         df = df.sample(frac=args.subset, random_state=args.seed).reset_index(drop=True)
-    log(f"数据 {len(df):,} 行  配置 {cfg}")
+    log(f"rows={len(df):,} dataset={cfg}")
 
     n_drug = int(max(df["DRUG1_IDX"].max(), df["DRUG2_IDX"].max())) + 1
     repr_path = os.path.join(D, "drug_reprs.npz")
     if os.path.exists(repr_path):
         _z = np.load(repr_path, allow_pickle=True)
         drf = _z[args.drug_feat].astype(np.float32)
-        log(f"药物表征 = {args.drug_feat}  {drf.shape}  (来自 drug_reprs.npz)")
+        log(f"drug_feat={args.drug_feat} shape={drf.shape} (from drug_reprs.npz)")
     elif args.drug_feat == "onehot":
         drf = np.eye(n_drug, dtype=np.float32)
-        log(f"药物表征 = one-hot  {drf.shape}  (现场构造)")
+        log(f"drug_feat=onehot shape={drf.shape} (constructed on the fly)")
     else:
         drf = np.load(os.path.join(D, "drug_features.npz"),
                       allow_pickle=True)["morgan"].astype(np.float32)
-        log(f"药物表征 = morgan  {drf.shape}  (回退到 drug_features.npz)")
-    assert drf.shape[0] == n_drug, f"药物数与表征行数不符: {drf.shape[0]} vs {n_drug}"
+        log(f"drug_feat=morgan shape={drf.shape} (fallback drug_features.npz)")
+    assert drf.shape[0] == n_drug, f"Drug count mismatch: {drf.shape[0]} vs {n_drug}"
 
     cel = np.load(os.path.join(D, "cell_expression.npy")).astype(np.float32)
     if args.cell_feat == "onehot":
-        # 对照：把细胞系换成独热向量，剥离全部生物学信息
         cel = np.eye(cel.shape[0], dtype=np.float32)
-        log(f"细胞系表征 = one-hot  {cel.shape}（无生物学信息）")
+        log(f"cell_feat=onehot shape={cel.shape}")
     else:
         cel = (cel - cel.mean(0, keepdims=True)) / (cel.std(0, keepdims=True) + 1e-6)
-    log(f"药物特征 {drf.shape}  细胞系特征 {cel.shape}")
+    log(f"drug_features={drf.shape} cell_features={cel.shape}")
 
     if args.shuffle_drug_cell:
         rs = np.random.RandomState(args.shuffle_seed)
         perm = rs.permutation(len(df))
         for c in ["DRUG1_IDX", "DRUG2_IDX"]:
             df[c] = df[c].values[perm]
-        log(f"药物↔细胞系配对已打乱（shuffle_seed={args.shuffle_seed}）")
+        log(f"Shuffled drug-cell pairings (shuffle_seed={args.shuffle_seed})")
 
     tr, va, te = make_split(df, args.protocol, split_seed, args.kfold, args.fold,
                             args.val_frac)
     if len(te) == 0:
-        raise RuntimeError(f"{args.protocol} fold={args.fold} 测试集为空")
-    log(f"划分 train/val/test = {len(tr):,}/{len(va):,}/{len(te):,} "
+        raise RuntimeError(f"Empty test split for {args.protocol} fold={args.fold}")
+    log(f"split train/val/test = {len(tr):,}/{len(va):,}/{len(te):,} "
         f"({len(tr)/len(df)*100:.1f}/{len(va)/len(df)*100:.1f}/{len(te)/len(df)*100:.1f} %)")
     np.savez_compressed(os.path.join(run_dir, "split_indices.npz"),
                         train=tr, val=va, test=te)
 
     dev = torch.device(args.device if torch.cuda.is_available() else "cpu")
-    log(f"设备 {dev}")
+    log(f"device={dev}")
 
     df = df.reset_index(drop=True)
     np_idx = {c: df[c].values.astype(np.int64)
@@ -338,8 +324,7 @@ def main():
 
     drug_t = torch.from_numpy(np.ascontiguousarray(drf)).to(dev)
     cell_t = torch.from_numpy(np.ascontiguousarray(cel)).to(dev)
-    log(f"嵌入表常驻显存: 药物 {drug_t.numel()*4/1e6:.2f} MB, "
-        f"细胞系 {cell_t.numel()*4/1e6:.2f} MB")
+    log(f"embedding_tables_mb: drug={drug_t.numel()*4/1e6:.2f} cell={cell_t.numel()*4/1e6:.2f}")
 
     class Split:
         def __init__(self, ix):
@@ -363,7 +348,7 @@ def main():
     TR, VA, TE = Split(tr), Split(va), Split(te)
 
     dose_transform = fit_dose_input_transform(np_x1, np_x2, tr, args.dose_input_scale)
-    log(f"剂量输入变换（只拟合训练剂量）: {dose_transform}")
+    log(f"dose_input_transform (fit on training split only): {dose_transform}")
     model = ComboModel(drf.shape[1], cel.shape[1], args.dose_enc, args.arch,
                        hidden=args.hidden, dropout=args.dropout,
                        sigma=args.sigma, w0=args.w0,
@@ -380,22 +365,20 @@ def main():
         initial_hashes["dose_drug_fusion"] = module_hash(model.dose_drug_fusion)
     n_par = sum(p.numel() for p in model.parameters())
     n_par_enc = sum(p.numel() for p in model.dose_enc.parameters())
-    log(f"模型参数量 {n_par:,}（其中剂量编码 {n_par_enc:,}）")
+    log(f"params total={n_par:,} dose_encoder={n_par_enc:,}")
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-5)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs)
     lossf = nn.MSELoss()
 
-    # ---- 早停 ----
-    # 监控验证集 RMSE，连续 patience 轮无改善即停；
-    # 始终恢复验证集最优的权重（best.pt）。
-    # 预算参照 MatchMaker（最多 1000 轮、patience 100）；此处用 patience 50。
     best = {"val_rmse": float("inf"), "epoch": -1}
     best_ep = 0
     stopped_ep = None
     hist = []
     for ep in range(1, args.epochs + 1):
-        model.train(); tot = 0.0; nb = 0
+        model.train()
+        tot = 0.0
+        nb = 0
         for d1, d2, c, x1, x2, y in TR.batches(args.batch_size, shuffle=True):
             opt.zero_grad(set_to_none=True)
             pred = model(d1, d2, c, x1, x2)
@@ -403,13 +386,16 @@ def main():
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
             opt.step()
-            tot += loss.item(); nb += 1
+            tot += loss.item()
+            nb += 1
         sched.step()
 
-        model.eval(); vp, vy = [], []
+        model.eval()
+        vp, vy = [], []
         with torch.no_grad():
             for d1, d2, c, x1, x2, y in VA.batches(args.batch_size * 4):
-                vp.append(model(d1, d2, c, x1, x2).cpu().numpy()); vy.append(y.cpu().numpy())
+                vp.append(model(d1, d2, c, x1, x2).cpu().numpy())
+                vy.append(y.cpu().numpy())
         vm = metrics(np.concatenate(vy), np.concatenate(vp))
         hist.append({"epoch": ep, "train_loss": tot / max(nb, 1),
                      **{f"val_{k}": v for k, v in vm.items()}})
@@ -423,20 +409,21 @@ def main():
 
         if ep - best_ep >= args.patience:
             stopped_ep = ep
-            log(f"早停 @ep{ep}：已 {args.patience} 轮无改善（最优在 ep{best_ep}）")
+            log(f"Early stopping @ep{ep}: no improvement for {args.patience} epochs (best at ep{best_ep})")
             break
 
     model.load_state_dict(torch.load(os.path.join(run_dir, "best.pt"), map_location=dev))
-    model.eval(); tp, ty = [], []
+    model.eval()
+    tp, ty = [], []
     with torch.no_grad():
         for d1, d2, c, x1, x2, y in TE.batches(args.batch_size * 4):
-            tp.append(model(d1, d2, c, x1, x2).cpu().numpy()); ty.append(y.cpu().numpy())
+            tp.append(model(d1, d2, c, x1, x2).cpu().numpy())
+            ty.append(y.cpu().numpy())
     tp, ty = np.concatenate(tp), np.concatenate(ty)
     tm = metrics(ty, tp)
 
     if args.save_pred:
         te_df = df.iloc[te]
-        # 实体键可能是 int（ALMANAC 的 NSC）也可能是 str（O'Neil 的药物名）→ 统一转字符串
         np.savez_compressed(
             os.path.join(run_dir, "test_pred.npz"),
             y_true=ty.astype(np.float32),
@@ -455,7 +442,7 @@ def main():
             cellname=te_df["CELLNAME"].to_numpy(dtype=str),
             panel=te_df["PANEL"].to_numpy(dtype=str),
         )
-        log(f"测试集预测已保存: test_pred.npz ({len(ty):,} 条)")
+        log(f"Saved test predictions: test_pred.npz ({len(ty):,} rows)")
 
     res = {"tag": tag, "config": cfg, "args": vars(args),
            "split_seed": split_seed,
@@ -473,10 +460,10 @@ def main():
               indent=1)
 
     log("")
-    log(f"=== 测试集结果（best epoch {best['epoch']}） ===")
+    log(f"=== Test metrics (best epoch {best['epoch']}) ===")
     for k, v in tm.items():
         log(f"   {k:10s} {v:.4f}" if isinstance(v, float) else f"   {k:10s} {v}")
-    log(f"结果目录: {run_dir}")
+    log(f"Output directory: {run_dir}")
     logf.close()
 
 

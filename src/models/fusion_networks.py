@@ -6,14 +6,17 @@ import torch.nn as nn
 
 from src.models.dose_encoders import DOSE_DIM, DOSE_ENCS, DoseEncFourier, DoseEncSIREN, FilmMod
 
+
 class ComboModel(nn.Module):
-    """
+    """Drug-combination dose-response prediction architecture.
+
     arch:
-      A1 = concat(e1,e2)                    —— MLP 可学到交互，但费力
-      A2 = MLP(phi(e1)+phi(e2))             —— 加性池化后使用非线性网络
-      A3 = concat + 双线性交互项 e1 ⊙ W e2  —— 显式交互
-      A4 = 每种药物先与自身剂量融合，再与细胞表示联合预测
+      A1: joint concatenation of projected drug, dose, and cell embeddings.
+      A2: additive symmetric drug pooling followed by concatenated dose and cell features.
+      A3: concatenation plus an explicit bilinear drug interaction term e1 * W(e2).
+      A4: within-drug fusion of each drug with its own dose embedding before joint head.
     """
+
     def __init__(self, drug_dim, cell_dim, dose_enc_id, arch,
                  hidden=512, dropout=0.2, out_dim=1, sigma=0.25, w0=7.0,
                  shared_backbone_init=False, dose_input_scale="none",
@@ -24,7 +27,7 @@ class ComboModel(nn.Module):
         self.dose_input_scale = dose_input_scale
         if dose_input_scale != "none":
             if dose_input_std <= 0:
-                raise ValueError("剂量输入标准差必须为正")
+                raise ValueError("Dose input standard deviation must be positive")
             self.register_buffer("dose_input_mean", torch.tensor(dose_input_mean, dtype=torch.float32))
             self.register_buffer("dose_input_std", torch.tensor(dose_input_std, dtype=torch.float32))
         dd = DOSE_DIM[dose_enc_id]
@@ -34,7 +37,8 @@ class ComboModel(nn.Module):
         self.dose_drug_dim = 256
         self.emb_dim = 256
 
-        # 剂量层在独立CPU随机状态中构建，避免其参数量改变后续预测网络的初始化。
+        # Initialize the dose branch in an isolated CPU RNG context so its parameter
+        # count does not perturb downstream backbone initialization.
         context = torch.random.fork_rng(devices=[]) if shared_backbone_init else nullcontext()
         with context:
             if shared_backbone_init:
@@ -57,7 +61,7 @@ class ComboModel(nn.Module):
             joint_dim = self.emb_dim * 2 + self.emb_dim + dd * 2 + 128
         elif arch == "A4":
             if dose_enc_id in ("D0", "D4"):
-                raise ValueError("A4 不支持无剂量或 FiLM 剂量编码")
+                raise ValueError("Architecture A4 does not support D0 (no dose) or D4 (FiLM)")
             self.dose_drug_fusion = nn.Sequential(
                 nn.Linear(self.dose_drug_dim + dd, 128), nn.GELU())
             joint_dim = 128 * 2 + 128
@@ -101,6 +105,3 @@ class ComboModel(nn.Module):
 
         parts = joint + dose_feat + [cell]
         return self.head(torch.cat(parts, dim=-1)).squeeze(-1)
-
-
-# ---------------------------------------------------------------- 剂量网格

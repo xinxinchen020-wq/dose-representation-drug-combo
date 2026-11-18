@@ -982,7 +982,7 @@
   ],
   "source": "Subramanian et al. 2017, Cell 171:1437 (LINCS L1000 landmark genes)",
   "gene_info_file": "GSE92742_Broad_LINCS_gene_info.txt.gz",
-  "canonicalization": "HGNC alias_symbol / prev_symbol → 现行 symbol",
+  "canonicalization": "HGNC alias_symbol / prev_symbol -> current official symbol",
   "generated_at": "2026-10-09 09:11:10",
   "coverage": {
     "l1000_total": 978,

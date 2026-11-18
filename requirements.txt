@@ -1,0 +1,11 @@
+numpy
+pandas>=2.2
+pyarrow
+rdkit
+openpyxl
+pyyaml
+scipy
+matplotlib>=3.8
+lightgbm==4.7.0
+# Install the appropriate PyTorch 2.6+ wheel for your platform separately:
+# https://pytorch.org/get-started/previous-versions/

@@ -1,26 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-数据预处理共用模块
-====================
-
-服务于四个数据配置：
-    C1 almanac_cm59   NCI-ALMANAC + CellMiner, 59 系
-    C2 almanac_cm47   NCI-ALMANAC + CellMiner, 47 系
-    C3 almanac_dm47   NCI-ALMANAC + DepMap,   47 系
-    C4 oneil          O'Neil 2016 + DepMap,   35 系
-
-统一约定（所有配置必须一致，否则跨配置比较不成立）：
-
-  1. **表达谱值都在 log 空间**，不要再取 log
-       CellMiner : log2(FPKM + 1)
-       DepMap    : log2(TPM  + 1)
-  2. **基因筛选规则**：HGNC 蛋白编码基因 → 在【该资源的全部细胞系】上
-     取方差最大的 N 个。注意是「资源的全部细胞系」而非「配置的子集」，
-     这样 C1/C2 共享同一基因集、C3/C4 共享同一基因集，
-     使 C1-vs-C2（只换子集）与 C3-vs-C4（只换数据集）成为干净对照。
-  3. **细胞系映射**统一走 DrugComb 细胞系标识符表
-     （含 depmap_id / ccle_name / cosmic_id / cell_model_passport_id）。
-"""
+"""Shared preprocessing helpers for gene harmonization, expression loading, and cell/drug mapping."""
 import json
 import re
 
@@ -29,11 +7,9 @@ import pandas as pd
 
 CLEAN_RE = re.compile(r"[\x00-\x1f\x7f]")
 
-# ------------------------------------------------------------------ 名称归一化
-
 
 def norm(s):
-    """细胞系名归一化：去控制字符 → 去非字母数字 → 小写"""
+    """Normalize a cell-line or drug identifier to lowercase alphanumeric characters."""
     if not isinstance(s, str):
         return ""
     s = CLEAN_RE.sub("", s).strip()
@@ -41,7 +17,7 @@ def norm(s):
 
 
 def variants(n):
-    """一个细胞系名的全部等价写法（去后缀、去括号、去斜杠后半段）"""
+    """Generate normalized spelling variants for a cell-line name."""
     n = str(n)
     out = {norm(n)}
     for suf in ["/ATCC", "-ATCC", "(TB)", "211H"]:
@@ -54,11 +30,8 @@ def variants(n):
     return {x for x in out if x}
 
 
-# ------------------------------------------------------------------ HGNC
-
-
 def load_hgnc(tsv_path):
-    """返回 (蛋白编码基因的 Entrez 集合, 蛋白编码基因的符号集合)"""
+    """Return (protein_coding_entrez_ids, protein_coding_symbols) from HGNC complete set."""
     d = pd.read_csv(tsv_path, sep="\t", low_memory=False,
                     usecols=["hgnc_id", "symbol", "locus_group", "entrez_id"])
     pc = d[d["locus_group"] == "protein-coding gene"]
@@ -68,25 +41,14 @@ def load_hgnc(tsv_path):
 
 
 def _variance_top(X, genes, n_genes):
-    """在 X (细胞系 × 基因) 上取方差最大的 n_genes 个基因
-
-    ⚠️ 仅作回退路径。默认应使用固定面板（见下），否则 C1/C2 与 C3/C4 的基因集不同，
-       C2-vs-C3 的「只差表达谱来源」不成立。
-    """
+    """Fallback selection of the top n_genes highest-variance genes across matrix X."""
     var = np.var(X, axis=0)
     top = np.argsort(var)[::-1][:n_genes]
     return X[:, top], [genes[i] for i in top]
 
 
-# ------------------------------------------------------------------ 基因符号规范化
-
-
 def load_alias_map(hgnc_tsv):
-    """{任意符号（含别名/旧名，大写）: 现行 HGNC 符号（大写）}
-
-    CellMiner 与 DepMap 的符号版本不同（AARS vs AARS1、ADCK3 vs COQ8A …），
-    必须先规范化到同一套符号才能比较。
-    """
+    """Build {uppercase_alias_or_previous_symbol: current_hgnc_symbol} lookup map."""
     h = pd.read_csv(hgnc_tsv, sep="\t", low_memory=False,
                     usecols=["symbol", "alias_symbol", "prev_symbol"])
     amap = {}
@@ -111,17 +73,13 @@ def canon_symbol(sym, amap):
 
 
 def load_gene_panel(json_path):
-    """读取固定基因面板 → (基因列表, 完整 JSON)"""
+    """Load fixed gene panel JSON and return (ordered_gene_list, metadata_dict)."""
     d = json.load(open(json_path, encoding="utf-8"))
     return list(d["genes"]), d
 
 
 def _select_panel(X, genes, panel, amap, label):
-    """按固定面板选基因并重排到面板顺序。
-
-    返回 (X_sel, genes_sel, missing)。genes_sel 的顺序与 panel 一致，
-    因此同一面板在所有配置上产出完全相同的基因列表。
-    """
+    """Select and align columns to a fixed ordered gene panel."""
     idx = {}
     for i, g in enumerate(genes):
         c = canon_symbol(g, amap)
@@ -135,23 +93,14 @@ def _select_panel(X, genes, panel, amap, label):
         else:
             miss.append(g)
     if miss:
-        print(f"  [{label}] 面板中有 {len(miss)} 个基因在本资源中缺失: {miss[:10]}"
+        print(f"  [{label}] missing {len(miss)} panel genes: {miss[:10]}"
               f"{' ...' if len(miss) > 10 else ''}")
     return X[:, cols], keep, miss
 
 
-# ------------------------------------------------------------------ CellMiner
-
-
 def load_cellminer(xls_path, n_genes, pc_entrez=None, pc_symbols=None,
                    panel=None, amap=None):
-    """读 CellMiner 表达谱（基因行 × 细胞系列）→ (细胞系名, X[cells×genes], 基因名)
-
-    表头在第 11 行（0-based 10），前 6 列是基因元信息。
-    细胞系列名形如 'BR:MCF7'，剥掉组织前缀。
-
-    panel 非空时按固定面板选基因（四配置共用，推荐）；否则回退到方差 top-N。
-    """
+    """Load CellMiner log2(FPKM + 1) expression matrix -> (cells, X[cells x genes], genes)."""
     df = pd.read_excel(xls_path, header=10)
     df = df.dropna(how="all")
     meta = list(df.columns[:6])
@@ -161,7 +110,7 @@ def load_cellminer(xls_path, n_genes, pc_entrez=None, pc_symbols=None,
     genes = df[meta[0]].astype(str).values
     entrez = pd.to_numeric(df[meta[1]], errors="coerce")
     X = df.iloc[:, 6:].apply(pd.to_numeric, errors="coerce").values.astype(np.float32)
-    X = X.T                                       # (基因, 细胞系) -> (细胞系, 基因)
+    X = X.T  # (genes, cells) -> (cells, genes)
 
     X = np.nan_to_num(X, nan=0.0)
     if panel is not None:
@@ -176,24 +125,14 @@ def load_cellminer(xls_path, n_genes, pc_entrez=None, pc_symbols=None,
     return cells, X, genes
 
 
-# ------------------------------------------------------------------ DepMap
-
-
 DEPMAP_META = ["SequencingID", "ModelID", "IsDefaultEntryForModel",
                "ModelConditionID", "IsDefaultEntryForMC"]
 
 
 def load_depmap(csv_path, n_genes, pc_entrez=None, pc_symbols=None,
                 panel=None, amap=None):
-    """读 DepMap OmicsExpression → (ACH 列表, X[models×genes], 基因名)
-
-    列名格式 'SYMBOL (ENTREZ)'；同一 ModelID 可能有多条测序记录，
-    取 IsDefaultEntryForModel == 'Yes' 的那条。
-
-    panel 非空时按固定面板选基因（四配置共用，推荐）；否则回退到方差 top-N。
-    """
+    """Load DepMap log2(TPM + 1) expression matrix -> (model_ids, X[models x genes], genes)."""
     df = pd.read_csv(csv_path, low_memory=False)
-    # 第一列是行号
     if df.columns[0].startswith("Unnamed") or df.columns[0] == "":
         df = df.iloc[:, 1:]
 
@@ -221,7 +160,6 @@ def load_depmap(csv_path, n_genes, pc_entrez=None, pc_symbols=None,
     ach = ids[sel]
     X = X[sel]
 
-    # 同一 ModelID 若仍重复，取第一条
     _, uniq = np.unique(ach, return_index=True)
     uniq = np.sort(uniq)
     ach, X = ach[uniq], X[uniq]
@@ -237,11 +175,8 @@ def load_depmap(csv_path, n_genes, pc_entrez=None, pc_symbols=None,
     return list(ach), X, sym
 
 
-# ------------------------------------------------------------------ 细胞系映射
-
-
 def load_drugcomb_cells(xlsx_path):
-    """DrugComb 细胞系标识符表 → {归一化名: {全部候选 ACH}}"""
+    """Load DrugComb cell-line sheet -> {normalized_name: set_of_candidate_depmap_ids}."""
     dc = pd.read_excel(xlsx_path, sheet_name="cell_line")
     name2achs = {}
     for _, r in dc.iterrows():
@@ -260,7 +195,7 @@ def load_drugcomb_cells(xlsx_path):
 
 
 def resolve_ach(cell, name2achs, depmap_ids):
-    """细胞系名 → (命中的 ACH 或 '', 全部候选 ACH)"""
+    """Resolve cell-line name -> (matched_ach_or_empty, sorted_candidate_achs)."""
     cands = set()
     for v in variants(cell):
         cands |= name2achs.get(v, set())
@@ -269,7 +204,7 @@ def resolve_ach(cell, name2achs, depmap_ids):
 
 
 def load_drug_smiles(xlsx_path):
-    """DrugComb 药物标识符表 → {归一化药名: SMILES}"""
+    """Load DrugComb drug sheet -> {normalized_drug_name: SMILES}."""
     dr = pd.read_excel(xlsx_path, sheet_name="drug")
     out = {}
     for _, r in dr.iterrows():
@@ -284,15 +219,8 @@ def load_drug_smiles(xlsx_path):
     return out
 
 
-# ------------------------------------------------------------------ 杂项
-
-
 def add_dose_position(df, c1="CONC1_LOG", c2="CONC2_LOG", pair="PAIR", cell="CELLNAME"):
-    """在 (药对, 细胞系) 块内把 log 浓度归一到 [0,1] 位置
-
-    与 ALMANAC 的 CONC*_LOG_POS 定义一致：块内 min→0, max→1。
-    剂量插值/外推协议判定网格位置时用它。
-    """
+    """Normalize log doses to [0, 1] within each (drug pair, cell line) block."""
     g = df.groupby([pair, cell])
     for c in (c1, c2):
         lo = g[c].transform("min")
@@ -303,7 +231,7 @@ def add_dose_position(df, c1="CONC1_LOG", c2="CONC2_LOG", pair="PAIR", cell="CEL
 
 
 def jsonable(o):
-    """把 numpy 类型转成可 JSON 序列化的 Python 类型"""
+    """Recursively convert NumPy scalars/containers to standard JSON-serializable Python types."""
     if isinstance(o, dict):
         return {k: jsonable(v) for k, v in o.items()}
     if isinstance(o, (list, tuple)):

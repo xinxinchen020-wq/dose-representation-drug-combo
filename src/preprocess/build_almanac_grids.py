@@ -1,4 +1,4 @@
-"""从ALMANAC原始实验重建完整网格，仅合并完全相同的重复网格。"""
+"""Reconstruct complete NCI-ALMANAC experiment dose grids while merging only exact duplicates."""
 import argparse
 import hashlib
 import json
@@ -39,7 +39,8 @@ def load_raw(path, reference):
     frame["SOURCE_FIRST_DRUG"] = frame.NSC1.astype("int64")
     frame["SOURCE_SAMPLE1"] = frame.SAMPLE1.astype("int64")
     frame["SOURCE_SAMPLE2"] = frame.SAMPLE2.astype("int64")
-    frame.NSC1 = frame.NSC1.astype("int64"); frame.NSC2 = frame.NSC2.astype("int64")
+    frame.NSC1 = frame.NSC1.astype("int64")
+    frame.NSC2 = frame.NSC2.astype("int64")
     swapped = frame.NSC1 > frame.NSC2
     for first, second in (("NSC1", "NSC2"), ("CONC1", "CONC2"), ("CONCUNIT1", "CONCUNIT2")):
         left = frame.loc[swapped, first].copy()
@@ -52,25 +53,26 @@ def load_raw(path, reference):
 
 
 def select_experiment_grids(frame):
-    """只按实验元数据与剂量网格选择，不读取响应以决定保留记录。"""
+    """Select complete experimental dose grids strictly from metadata and grid shape."""
     frame = frame.copy()
     frame["BLOCK_ID"] = pd.factorize(pd.MultiIndex.from_frame(frame[BLOCK_KEYS]), sort=True)[0]
     if frame.duplicated(["BLOCK_ID"] + DOSES).any():
-        raise ValueError("同一实验和药物方向内存在重复剂量点，需要先查明原始测量身份")
+        raise ValueError("Duplicate dose points within the same experimental block and drug ordering")
     blocks = frame.groupby("BLOCK_ID", sort=True).agg(
         n_points=("CONC1_M", "size"),
         doses1=("CONC1_M", lambda values: tuple(sorted(values.unique()))),
         doses2=("CONC2_M", lambda values: tuple(sorted(values.unique()))))
     metadata = frame[BLOCK_KEYS + ["BLOCK_ID", "TESTDATE_ORDER"]].drop_duplicates("BLOCK_ID").set_index("BLOCK_ID")
     blocks = blocks.join(metadata)
-    blocks["n1"] = blocks.doses1.map(len); blocks["n2"] = blocks.doses2.map(len)
+    blocks["n1"] = blocks.doses1.map(len)
+    blocks["n2"] = blocks.doses2.map(len)
     blocks["complete"] = blocks.n_points.eq(blocks.n1 * blocks.n2) & blocks.n1.ge(3) & blocks.n2.ge(3)
     complete = blocks[blocks.complete].sort_values(CURVE_KEYS + ORDER_KEYS, kind="stable")
     anchors = complete.drop_duplicates(CURVE_KEYS).reset_index()[CURVE_KEYS + ["BLOCK_ID", "SCREENER", "doses1", "doses2"]]
     anchors = anchors.rename(columns={"BLOCK_ID": "anchor_block", "SCREENER": "anchor_screener", "doses1": "anchor_doses1", "doses2": "anchor_doses2"})
     decisions = blocks.reset_index().merge(anchors, on=CURVE_KEYS, how="left", validate="many_to_one")
     if decisions.anchor_block.isna().any():
-        raise ValueError("存在没有完整原始实验的曲面，不能静默将不同网格拼成完整曲面")
+        raise ValueError("Missing complete original experiment for at least one surface")
     decisions["selected"] = (decisions.complete & decisions.SCREENER.eq(decisions.anchor_screener)
                              & decisions.doses1.eq(decisions.anchor_doses1) & decisions.doses2.eq(decisions.anchor_doses2))
     selected_ids = decisions.loc[decisions.selected, "BLOCK_ID"]
@@ -85,14 +87,14 @@ def select_experiment_grids(frame):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--raw", type=Path, required=True)
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     reference, out = args.reference.resolve(), args.out.resolve()
     if out.exists():
-        raise FileExistsError("请使用新的数据目录，保留原处理版本")
+        raise FileExistsError(f"Output directory already exists: {out}")
     frame, report = load_raw(args.raw, reference)
     points, decisions, provenance = select_experiment_grids(frame)
     assert decisions.complete.all()
@@ -111,7 +113,6 @@ def main():
     assert set(points.CELLNAME) == set(cells)
     assert (set(points.NSC1) | set(points.NSC2)) == set(map(int, drugs))
     assert not points.duplicated(CURVE_KEYS + DOSES).any()
-    # 训练目标保留原始有符号生长百分比，不裁剪或转换成存活率。
     out.mkdir(parents=True)
     features = ["cell_expression.npy", "cell_expression_names.json", "drug_dict.json", "drug_reprs.npz", "drug_smiles.json", "cell_dict.json"]
     for name in features:
@@ -121,20 +122,22 @@ def main():
     decisions.to_parquet(out / "experiment_grid_decisions.parquet", index=False, compression="zstd")
     provenance.to_parquet(out / "raw_experiment_measurements.parquet", index=False, compression="zstd")
     conflicts = decisions.groupby(CURVE_KEYS).selected.agg(["all", "sum", "size"])
-    report.update(rule_version=RULE_VERSION, dataset="NCI-ALMANAC", raw_source=str(args.raw.resolve()),
-                  reference=str(reference),reference_sha256=sha(reference / "pairs.parquet"),
-                  dataset_sha256=sha(out / "pairs.parquet"),feature_hashes={name:sha(out/name) for name in features},
-                  n_cells=len(cells), n_drugs=len(drugs), n_pairs=int(points.PAIR.nunique()),
-                  n_curves=int(points.groupby(CURVE_KEYS).ngroups), main_table_rows=len(points),
-                  original_experiments=len(decisions), selected_experiments=int(decisions.selected.sum()),
-                  selected_raw_rows=int(provenance.SELECTED.sum()), omitted_raw_rows=int((~provenance.SELECTED).sum()),
-                  different_grid_curves=int((~conflicts['all']).sum()), curves_merging_matching_experiments=int(conflicts['sum'].gt(1).sum()),
-                  shape_counts=points.groupby(CURVE_KEYS).agg(n1=('CONC1','nunique'),n2=('CONC2','nunique')).value_counts().reset_index(name='curves').to_dict('records'),
-                  target_definition="Original PERCENTGROWTH using time-zero baseline; equal mean over exactly matching experiment grids",
-                  dose_definition="log10(concentration in micromolar); original M converted by multiplication by 1e6",
-                  block_definition=BLOCK_KEYS, plate_ids_are_provenance_not_experiment_boundaries=True,
-                  selection_rule="Earliest test date, then screener/study/original first drug/sample numbers; combine only exactly matching dose grids from the same screener",
-                  other_experiments_retained_in="raw_experiment_measurements.parquet")
+    report.update(
+        rule_version=RULE_VERSION, dataset="NCI-ALMANAC", raw_source=str(args.raw.resolve()),
+        reference=str(reference), reference_sha256=sha(reference / "pairs.parquet"),
+        dataset_sha256=sha(out / "pairs.parquet"), feature_hashes={name: sha(out / name) for name in features},
+        n_cells=len(cells), n_drugs=len(drugs), n_pairs=int(points.PAIR.nunique()),
+        n_curves=int(points.groupby(CURVE_KEYS).ngroups), main_table_rows=len(points),
+        original_experiments=len(decisions), selected_experiments=int(decisions.selected.sum()),
+        selected_raw_rows=int(provenance.SELECTED.sum()), omitted_raw_rows=int((~provenance.SELECTED).sum()),
+        different_grid_curves=int((~conflicts['all']).sum()), curves_merging_matching_experiments=int(conflicts['sum'].gt(1).sum()),
+        shape_counts=points.groupby(CURVE_KEYS).agg(n1=('CONC1', 'nunique'), n2=('CONC2', 'nunique')).value_counts().reset_index(name='curves').to_dict('records'),
+        target_definition="Original PERCENTGROWTH using time-zero baseline; equal mean over exact matching experiment grids",
+        dose_definition="log10(concentration in uM); original M converted via multiplication by 1e6",
+        block_definition=BLOCK_KEYS, plate_ids_are_provenance_not_experiment_boundaries=True,
+        selection_rule="Earliest test date, then screener/study/original first drug/sample numbers; combine only exact matching dose grids from the same screener",
+        other_experiments_retained_in="raw_experiment_measurements.parquet",
+    )
     (out / "preprocess_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False))
 
