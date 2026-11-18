@@ -1,4 +1,4 @@
-# Task-dependent performance and aggregation artefacts of dose representations in drug-combination prediction
+# Benchmarking dose representations in drug-combination response prediction exposes extrapolation degradation and aggregation artefacts
 
 Research code for the controlled comparison of eight dose representations in the O’Neil and NCI-ALMANAC drug-combination screens. The benchmark evaluates held-out doses for known drug pairs and cell lines. It uses centre, within-range random, first-drug high-dose and second-drug high-dose holdouts. Extended analyses compare joint concatenation with within-drug fusion and include a compact scalar dose network and a follow-up split.
 
