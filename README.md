@@ -45,6 +45,13 @@ python -m src.preprocess.build_almanac_grids --raw data/raw/almanac/NCL_Combo_Re
 
 If you already have the processed snapshots, place each dataset under `data/processed/`. Each directory needs `pairs.parquet`, `drug_reprs.npz` with Morgan fingerprints and `cell_expression.npy`.
 
+| Dataset | Directory (`data/processed/`) | Drugs | Cell lines | Drug pairs | Surfaces | Grid size | Points | Prediction target |
+|---|---|---|---|---|---|---|---|---|
+| O’Neil | `oneil_batch_checked` | 38 | 35 | 583 | 20,405 | 4 × 4 | 326,480 | Mean viability × 100 |
+| NCI-ALMANAC | `almanac_dm47_batch_checked` | 104 | 47 | 5,143 | 234,038 | 3 × 3 / 3 × 5 / 5 × 3 | 2,159,784 | Growth percentage (with time-zero baseline) |
+
+Both processed datasets share 2,048-bit Morgan fingerprints (radius 2), 977 standardised LINCS L1000 gene expression features from DepMap 25Q3, and `log10(dose / μM)` inputs.
+
 ## Run the benchmark
 
 ```bash
@@ -59,7 +66,21 @@ python -m src.eval.metrics_and_ranks --extended --output outputs/extended_metric
 
 To inspect comparison groups without training, run `python -m src.train.train_runner primary --plan` or `python -m src.train.train_runner extended --plan` (or pass `--plan` to `bash scripts/run_all_benchmarks.sh --plan` or `bash scripts/run_extended_ablations.sh --plan`). The primary benchmark covers 64 comparison groups (576 candidate fits). The extended run reuses matching primary fits and adds two initialisations at the selected learning rate for the original centre and random conditions. The follow-up comparison uses three initialisations with seeds 1 for pair assignment and 20261018 for dose sampling.
 
-Learning rate is selected separately for each dataset, task, architecture and dose representation using the mean best validation root mean squared error across seeds 0, 1 and 2. Additional seeds 3 and 4 use the selected rate. `configs/default_benchmark.yaml` lists all training settings and maps the paper's method labels to the identifiers used in experiment records.
+Learning rate is selected separately for each dataset, task, architecture and dose representation using the mean best validation root mean squared error across seeds 0, 1 and 2. Additional seeds 3 and 4 use the selected rate. `configs/default_benchmark.yaml` defines all training settings and identifier mappings summarised below:
+
+| Paper term | Code / config identifier | Dose-branch params | Notes |
+|---|---|---|---|
+| Direct log-dose input | `raw64_fixed` (`DoseEncRaw64Fixed`) | 0 | Scalar padded with 63 fixed zeros (baseline) |
+| Fixed sinusoidal features | `D1` (`DoseEncFixedSin`) | 0 | Geometric sin/cos frequencies |
+| Linear projection | `linear64` (`DoseEncLinear`) | 128 | Trainable 1 → 64 linear layer |
+| Fixed sinusoidal + affine transform | `sin_affine64` (`DoseEncSinAffine`) | 128 | Dimension-wise trainable scale and shift |
+| Linear projection + nonlinear dose network | `linear64_mlp` (`DoseEncLinearMLP`) | 16,704 | Trainable 1 → 64 + 64 → 128 → 64 GELU MLP |
+| Fixed sinusoidal + affine + nonlinear dose network | `sin_affine64_mlp` (`DoseEncSinAffineMLP`) | 16,704 | Affine sinusoidal features + matched MLP |
+| Fixed sinusoidal + nonlinear dose network | `D1u` (`DoseEncFixedSinMLP`) | 16,576 | Fixed sinusoidal features + matched MLP |
+| Fixed random Fourier features + nonlinear dose network | `D3` (`DoseEncFourier`) | 16,576 | Fixed Gaussian frequencies (`sigma=0.25`) + MLP |
+| Compact direct-scalar dose network | `compact_scalar_mlp` (`DoseEncCompactMLP`) | 8,512 | Reduced-capacity control (`1 → 128 → 64` scalar network) |
+
+Holdout tasks map as `centre` → `INTERP`, `random` → `RANDOM_IN_RANGE`, `drug1_high_dose` → `EXTRAP`, and `drug2_high_dose` → `EXTRAP2`; prediction structures map as `joint_concatenation` → `A1` and `within_drug_fusion` → `A4`.
 
 Candidate training logs, learning-rate and LightGBM leaf-selection records, runtime snapshots and follow-up surface-diagnostic and ComboScore summary tables are supplied separately in `Supplementary_Data_1_training_records.zip`. Raw screening files, model weights and per-observation prediction arrays are excluded from version control and generated locally when running the pipeline.
 
