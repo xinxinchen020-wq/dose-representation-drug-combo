@@ -5,10 +5,28 @@ type: software
 authors:
   - family-names: Chen
     given-names: Xin
-    affiliation: "Chongqing University, Chongqing, China"
+    affiliation: "Key Laboratory of Biorheological Science and Technology of Ministry of Education, Chongqing University, Chongqing 400044, China; State Key Laboratory for the Modernization of Classical and Famous Prescriptions of Chinese Medicine, China Resources Jiangzhong Pharmaceutical Co., Ltd., Nanchang 330096, China"
+  - family-names: Luo
+    given-names: Yu
+    affiliation: "School of Pharmacy, Fudan University, No. 826 Zhangheng Road, Pudong New Area, Shanghai 201203, China; State Key Laboratory for the Modernization of Classical and Famous Prescriptions of Chinese Medicine, China Resources Jiangzhong Pharmaceutical Co., Ltd., Nanchang 330096, China"
+  - family-names: Hu
+    given-names: Pei
+    affiliation: "State Key Laboratory for the Modernization of Classical and Famous Prescriptions of Chinese Medicine, China Resources Jiangzhong Pharmaceutical Co., Ltd., Nanchang 330096, China"
+  - family-names: Yang
+    given-names: Lin
+    affiliation: "State Key Laboratory for the Modernization of Classical and Famous Prescriptions of Chinese Medicine, China Resources Jiangzhong Pharmaceutical Co., Ltd., Nanchang 330096, China"
+  - family-names: Xie
+    given-names: Yunwang
+    affiliation: "State Key Laboratory for the Modernization of Classical and Famous Prescriptions of Chinese Medicine, China Resources Jiangzhong Pharmaceutical Co., Ltd., Nanchang 330096, China"
+  - family-names: Huang
+    given-names: Chenggang
+    affiliation: "State Key Laboratory for the Modernization of Classical and Famous Prescriptions of Chinese Medicine, China Resources Jiangzhong Pharmaceutical Co., Ltd., Nanchang 330096, China"
+  - family-names: Hou
+    given-names: Wensheng
+    affiliation: "Key Laboratory of Biorheological Science and Technology of Ministry of Education, Chongqing University, Chongqing 400044, China"
   - family-names: Xu
     given-names: Huanhua
-    affiliation: "Jiangxi University of Chinese Medicine, Nanchang, China"
+    affiliation: "State Key Laboratory for the Modernization of Classical and Famous Prescriptions of Chinese Medicine, Jiangxi University of Chinese Medicine, Nanchang 330004, China"
 repository-code: "https://github.com/xinxinchen020-wq/dose-representation-drug-combo"
 license: MIT
 keywords:
